@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PS4 Manager - V9</title>
+    <style>
+        :root { --ps-blue: #003791; --ps-light: #0072ce; --bg: #050505; --card: #151515; --white: #ffffff; --red: #ff5252; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 80px; }
+        .header { background: var(--ps-blue); height: 90px; border-bottom: 5px solid var(--white); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 100; }
+        .sync-status { font-size: 0.6rem; text-transform: uppercase; color: #00e676; }
+        .list { padding: 10px; }
+        .game-card { background: var(--card); margin-bottom: 10px; padding: 10px; border-left: 6px solid var(--ps-blue); display: flex; align-items: center; gap: 15px; }
+        .thumb { width: 45px; height: 60px; object-fit: cover; border-radius: 3px; border: 1px solid #333; }
+        .game-num { color: var(--ps-light); font-weight: bold; min-width: 25px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; overflow-y: auto; padding: 20px; box-sizing: border-box; }
+        .img-grid { display: flex; gap: 10px; margin: 15px 0; }
+        .img-grid img { width: 50%; border-radius: 4px; border: 1px solid #333; aspect-ratio: 3/4; object-fit: cover; }
+        input, select { width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 4px; box-sizing: border-box; margin-bottom: 15px; font-size: 1rem; }
+        label { font-size: 0.7rem; color: var(--ps-light); text-transform: uppercase; display: block; margin-bottom: 5px; }
+        #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; align-items: center; justify-content: center; overflow: hidden; }
+        #viewer-img { max-width: 100%; max-height: 100%; transition: transform 0.2s; touch-action: pinch-zoom; }
+        #add-btn { position: fixed; top: 110px; right: 20px; width: 65px; height: 65px; border-radius: 50%; background: var(--ps-blue); border: 2px solid white; color: white; font-size: 35px; z-index: 500; display: flex; align-items: center; justify-content: center; }
+        .save-btn { width: 100%; padding: 15px; background: var(--ps-blue); color: white; border: none; font-weight: bold; border-radius: 4px; }
+        .cloud-btn { background: #4285F4; border: none; color: white; padding: 10px; border-radius: 5px; font-weight: bold; font-size: 0.7rem; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <span style="font-weight:bold; font-size:1.2rem;">PS4 Manager</span>
+            <div id="status" class="sync-status">Mode Local</div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="cloud-btn" id="btn-cloud" onclick="forceAuth()">☁️ DRIVE</button>
+            <button onclick="toggleDeleteMode()" id="trash-btn" style="background:none; border:none; color:white; font-size:24px;">🗑️</button>
+        </div>
+    </div>
+
+    <div id="game-list" class="list"></div>
+    <button id="add-btn" onclick="startSequence()">+</button>
+    <input type="file" id="cam" accept="image/*" capture="environment" class="hidden">
+
+    <div id="modal" class="modal">
+        <button onclick="closeModal()" style="float:right; background:none; border:none; color:white; font-size:35px;">✕</button>
+        <h2 style="margin-top:0;">Détails</h2>
+        <label>Titre</label><input type="text" id="m-title">
+        <div class="img-grid">
+            <img id="m-r" src="" onclick="openFullscreen(this.src)">
+            <img id="m-v" src="" onclick="openFullscreen(this.src)">
+        </div>
+        <label>Joueurs</label>
+        <select id="m-players">
+            <option value="1 joueur">1 joueur</option>
+            <option value="1 à 2 joueurs">1 à 2 joueurs</option>
+            <option value="1 à 4 joueurs">1 à 4 joueurs</option>
+        </select>
+        <label>Prêt à</label><input type="text" id="m-loan">
+        <button class="save-btn" onclick="saveGame()">ENREGISTRER</button>
+    </div>
+
+    <div id="viewer" onclick="closeViewer()"><img id="viewer-img" src=""></div>
+
+    <script>
+        /* --- CONFIGURATION --- */
+        const CLIENT_ID = '146086087886-mraspoquqjd6n2ntug7sl6t0brsed5fj.apps.googleusercontent.com'; 
+        const API_KEY = 'AIzaSyC1M_T9_Pf9kxnbulWhtBy4DzXIwzsTLZ0';
+
+        let db, games = [], step = 1, rectoTemp = null, activeId = null, isDeleteMode = false;
+        let selectedForDelete = new Set();
+        let tokenClient;
+
+        // DB Locale
+        const req = indexedDB.open("LudoPS4_V9", 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore("games", {keyPath: "id", autoIncrement: true});
+        req.onsuccess = e => { db = e.target.result; fetchAll(); };
+
+        function fetchAll() {
+            const tx = db.transaction("games", "readonly");
+            tx.objectStore("games").getAll().onsuccess = e => { games = e.target.result; display(); };
+        }
+
+        function display() {
+            const list = document.getElementById('game-list');
+            list.innerHTML = "";
+            games.sort((a,b) => a.title.localeCompare(b.title)).forEach((g, i) => {
+                const el = document.createElement('div');
+                el.className = `game-card ${selectedForDelete.has(g.id) ? 'to-delete' : ''}`;
+                el.onclick = () => isDeleteMode ? selectDelete(el, g.id) : openGame(g.id);
+                el.innerHTML = `<span class="game-num">${i + 1}.</span><img src="${g.r}" class="thumb"><div style="flex-grow:1"><div style="font-weight:bold;">${g.title}</div><div style="font-size:0.7rem; opacity:0.6;">${g.players}</div></div>`;
+                list.appendChild(el);
+            });
+        }
+
+        // --- App ---
+        function startSequence() {
+            document.getElementById('cam').onchange = e => {
+                const fr = new FileReader();
+                fr.onload = () => {
+                    if(step === 1) { rectoTemp = fr.result; step = 2; alert("RECTO OK - Prenez le VERSO"); }
+                    else { step = 1; showForm(rectoTemp, fr.result); }
+                };
+                fr.readAsDataURL(e.target.files[0]);
+            };
+            document.getElementById('cam').click();
+        }
+
+        function showForm(r, v) {
+            activeId = null; document.getElementById('m-title').value = "";
+            document.getElementById('m-r').src = r; document.getElementById('m-v').src = v;
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        function saveGame() {
+            const g = { title: document.getElementById('m-title').value || "Sans titre", players: document.getElementById('m-players').value, loan: document.getElementById('m-loan').value, r: document.getElementById('m-r').src, v: document.getElementById('m-v').src };
+            const tx = db.transaction("games", "readwrite");
+            if(activeId) { g.id = activeId; tx.objectStore("games").put(g); }
+            else { tx.objectStore("games").add(g); }
+            tx.oncomplete = () => { closeModal(); fetchAll(); syncToDrive(); };
+        }
+
+        function openGame(id) {
+            const g = games.find(x => x.id === id); activeId = id;
+            document.getElementById('m-title').value = g.title; document.getElementById('m-players').value = g.players;
+            document.getElementById('m-loan').value = g.loan; document.getElementById('m-r').src = g.r; document.getElementById('m-v').src = g.v;
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        let currentScale = 1;
+        function openFullscreen(src) {
+            document.getElementById('viewer-img').src = src; document.getElementById('viewer').style.display = 'flex';
+            currentScale = 1; document.getElementById('viewer-img').style.transform = 'scale(1)';
+        }
+        document.getElementById('viewer-img').onclick = (e) => { e.stopPropagation(); currentScale = (currentScale === 1) ? 2.5 : 1; document.getElementById('viewer-img').style.transform = `scale(${currentScale})`; };
+        function closeViewer() { document.getElementById('viewer').style.display = 'none'; }
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+        // --- Drive Fix ---
+        function forceAuth() {
+            try {
+                if (!tokenClient) {
+                    tokenClient = google.accounts.oauth2.initTokenClient({
+                        client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
+                        callback: async (resp) => { if (!resp.error) { document.getElementById('status').innerText = "CONNECTÉ"; gapi.client.setToken(resp); pullFromDrive(); } }
+                    });
+                }
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } catch (err) { alert("Erreur d'initialisation Google : " + err.message); }
+        }
+
+        async function syncToDrive() {
+            if (!gapi.client.getToken()) return;
+            const content = JSON.stringify(games);
+            const res = await gapi.client.drive.files.list({ q: "name='ludo_cloud.json'" });
+            const fileId = res.result.files[0]?.id;
+            const metadata = { name: 'ludo_cloud.json', mimeType: 'application/json' };
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+            form.append('file', new Blob([content], {type: 'application/json'}));
+            await fetch(`https://www.googleapis.com/upload/drive/v3/files${fileId ? '/'+fileId : ''}?uploadType=multipart`, {
+                method: fileId ? 'PATCH' : 'POST',
+                headers: { Authorization: `Bearer ${gapi.client.getToken().access_token}` },
+                body: form
+            });
+            document.getElementById('status').innerText = "CLOUD À JOUR";
+        }
+
+        async function pullFromDrive() {
+            const res = await gapi.client.drive.files.list({ q: "name='ludo_cloud.json'" });
+            if (res.result.files.length > 0) {
+                const data = await gapi.client.drive.files.get({ fileId: res.result.files[0].id, alt: 'media' });
+                if(data.result && confirm("Récupérer les jeux du Cloud ?")) {
+                    const tx = db.transaction("games", "readwrite");
+                    data.result.forEach(g => tx.objectStore("games").put(g));
+                    tx.oncomplete = fetchAll;
+                }
+            }
+        }
+
+        function toggleDeleteMode() {
+            isDeleteMode = !isDeleteMode;
+            if(!isDeleteMode && selectedForDelete.size > 0) {
+                if(confirm("Supprimer ?")) {
+                    const tx = db.transaction("games", "readwrite");
+                    selectedForDelete.forEach(id => tx.objectStore("games").delete(id));
+                    tx.oncomplete = () => { selectedForDelete.clear(); fetchAll(); syncToDrive(); };
+                }
+            }
+            document.getElementById('trash-btn').innerHTML = isDeleteMode ? "✅" : "🗑️"; display();
+        }
+        function selectDelete(el, id) { if(selectedForDelete.has(id)) selectedForDelete.delete(id); else selectedForDelete.add(id); display(); }
+        
+        // Chargement scripts Google
+        function startGapi() { gapi.load('client', () => gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] })); }
+    </script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="startGapi()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
+</body>
+</html>
