@@ -3,19 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PS4 Manager - V11</title>
+    <title>PS4 Manager - V13</title>
     <style>
         :root { --ps-blue: #003791; --ps-light: #0072ce; --bg: #050505; --card: #151515; --white: #ffffff; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 80px; }
-        .header { background: var(--ps-blue); height: 70px; border-bottom: 3px solid var(--white); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; position: sticky; top: 0; z-index: 100; }
-        #status { font-size: 0.7rem; font-weight: bold; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 20px; }
+        
+        /* Barre supérieure modifiée */
+        .header { 
+            background: var(--ps-blue); 
+            height: 75px; 
+            border-bottom: 3px solid var(--white); 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 0 10px; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+        }
+
+        .header-left { width: 30%; }
+        .header-right { width: 30%; text-align: right; }
+        
+        /* Nouveau bouton central dynamique */
+        .header-center { 
+            width: 40%; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+
+        #btn-main { 
+            width: 50px; 
+            height: 50px; 
+            border-radius: 50%; 
+            background: var(--white); 
+            color: var(--ps-blue); 
+            border: none; 
+            font-size: 28px; 
+            font-weight: bold; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        #status { font-size: 0.6rem; font-weight: bold; }
         .list { padding: 10px; }
         .game-card { background: var(--card); margin-bottom: 8px; padding: 10px; border-left: 5px solid var(--ps-blue); display: flex; align-items: center; gap: 12px; }
         .thumb { width: 50px; height: 65px; object-fit: cover; border-radius: 3px; }
+        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; padding: 15px; box-sizing: border-box; overflow-y: auto; }
         #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; overflow: auto; }
         #viewer-img { width: 100%; transition: transform 0.3s; transform-origin: top left; }
-        .btn-add { position: fixed; bottom: 20px; right: 20px; width: 65px; height: 65px; border-radius: 50%; background: var(--ps-blue); color: white; border: 2px solid white; font-size: 35px; z-index: 500; }
+        
         input, select { width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; border-radius: 5px; }
         .hidden { display: none; }
     </style>
@@ -23,15 +64,21 @@
 <body>
 
     <div class="header">
-        <div>
-            <div style="font-weight:bold;">PS4 Manager</div>
+        <div class="header-left">
+            <div style="font-size: 0.9rem; font-weight:bold;">PS4 Manager</div>
             <div id="status" style="color:#ff5252;">DÉCONNECTÉ</div>
         </div>
-        <button onclick="forceAuth()" id="drive-btn" style="background:#4285F4; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold;">SYNC CLOUD</button>
+
+        <div class="header-center">
+            <button id="btn-main" onclick="startSequence()">+</button>
+        </div>
+
+        <div class="header-right">
+            <button onclick="forceAuth()" style="background:#4285F4; color:white; border:none; padding:8px; border-radius:4px; font-size: 0.7rem; font-weight:bold;">SYNC DRIVE</button>
+        </div>
     </div>
 
     <div id="game-list" class="list"></div>
-    <button class="btn-add" onclick="startSequence()">+</button>
     <input type="file" id="cam" accept="image/*" capture="environment" class="hidden">
 
     <div id="modal" class="modal">
@@ -47,21 +94,19 @@
             <option value="1-4 joueurs">1-4 joueurs</option>
         </select>
         <input type="text" id="m-loan" placeholder="Prêté à...">
-        <button onclick="saveGame()" style="width:100%; padding:15px; background:var(--ps-blue); color:white; border:none; font-weight:bold; border-radius:5px;">SAUVEGARDER (LOCAL + CLOUD)</button>
-        <button onclick="closeModal()" style="width:100%; padding:10px; background:none; color:gray; border:none; margin-top:10px;">Fermer</button>
+        <button onclick="saveGame()" style="width:100%; padding:15px; background:var(--ps-blue); color:white; border:none; font-weight:bold;">SAUVEGARDER</button>
+        <button onclick="closeModal()" style="width:100%; padding:10px; background:none; color:gray; border:none; margin-top:10px;">Annuler</button>
     </div>
 
     <div id="viewer" onclick="closeViewer()"><img id="viewer-img" src=""></div>
 
     <script>
-        /* --- CONFIGURATION --- */
         const CLIENT_ID = 'VOTRE_ID_CLIENT'; 
         const API_KEY = 'VOTRE_CLE_API';
 
         let db, games = [], step = 1, rectoTemp = null, activeId = null, tokenClient;
 
-        // 1. Initialisation de la mémoire interne (IndexedDB)
-        const req = indexedDB.open("PS4_Manager_Internal", 1);
+        const req = indexedDB.open("PS4_Manager_DB_V13", 1);
         req.onupgradeneeded = e => e.target.result.createObjectStore("games", {keyPath: "id", autoIncrement: true});
         req.onsuccess = e => { db = e.target.result; loadLocal(); };
 
@@ -84,13 +129,25 @@
             });
         }
 
-        // 2. Gestion Appareil Photo
+        // Séquence photo avec bouton dynamique
         function startSequence() {
+            const btn = document.getElementById('btn-main');
             document.getElementById('cam').onchange = e => {
                 const fr = new FileReader();
                 fr.onload = () => {
-                    if(step === 1) { rectoTemp = fr.result; step = 2; alert("RECTO OK - Prenez le VERSO"); }
-                    else { step = 1; showForm(rectoTemp, fr.result); }
+                    if(step === 1) { 
+                        rectoTemp = fr.result; 
+                        step = 2; 
+                        btn.innerText = "2"; // Changement du signe + en 2
+                        btn.style.background = "#ff9800"; // Couleur d'alerte pour le verso
+                        btn.style.color = "white";
+                    } else { 
+                        step = 1; 
+                        btn.innerText = "+"; // Retour au signe +
+                        btn.style.background = "white";
+                        btn.style.color = "var(--ps-blue)";
+                        showForm(rectoTemp, fr.result); 
+                    }
                 };
                 fr.readAsDataURL(e.target.files[0]);
             };
@@ -103,7 +160,6 @@
             document.getElementById('modal').style.display = 'block';
         }
 
-        // 3. Sauvegarde Double (Interne + Drive)
         async function saveGame() {
             const g = { 
                 title: document.getElementById('m-title').value || "Sans titre", 
@@ -112,44 +168,37 @@
                 r: document.getElementById('m-r').src, 
                 v: document.getElementById('m-v').src 
             };
-            
             const tx = db.transaction("games", "readwrite");
             if(activeId) { g.id = activeId; tx.objectStore("games").put(g); }
             else { tx.objectStore("games").add(g); }
-            
-            tx.oncomplete = async () => { 
-                closeModal(); 
-                loadLocal(); 
-                await syncToDrive(); // Force l'envoi vers Google immédiatement
-            };
+            tx.oncomplete = () => { closeModal(); loadLocal(); syncToDrive(); };
         }
 
-        // 4. Synchronisation Réelle
+        // --- Fonctions Google Drive ---
+        function startGapi() {
+            gapi.load('client', async () => {
+                await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
+                    callback: (resp) => { if(!resp.error) { document.getElementById('status').innerText = "CONNECTÉ"; document.getElementById('status').style.color = "#00e676"; pullFromDrive(); } }
+                });
+            });
+        }
+
+        function forceAuth() { tokenClient.requestAccessToken({prompt: ''}); }
+
         async function syncToDrive() {
             const token = gapi.client.getToken();
-            if (!token) { alert("Connectez-vous au Drive pour sauvegarder à distance."); return; }
-            
-            document.getElementById('status').innerText = "ENVOI CLOUD...";
+            if (!token) return;
             const content = JSON.stringify(games);
-            
-            // Chercher si le fichier existe déjà
             const res = await gapi.client.drive.files.list({ q: "name='ludo_cloud.json' and trashed=false" });
             const fileId = res.result.files[0]?.id;
-            
             const metadata = { name: 'ludo_cloud.json', mimeType: 'application/json' };
             const form = new FormData();
             form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
             form.append('file', new Blob([content], {type: 'application/json'}));
-
             const url = fileId ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart` : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
-            
-            await fetch(url, {
-                method: fileId ? 'PATCH' : 'POST',
-                headers: { Authorization: `Bearer ${token.access_token}` },
-                body: form
-            });
-            document.getElementById('status').innerText = "CLOUD À JOUR";
-            document.getElementById('status').style.color = "#00e676";
+            await fetch(url, { method: fileId ? 'PATCH' : 'POST', headers: { Authorization: `Bearer ${token.access_token}` }, body: form });
         }
 
         async function pullFromDrive() {
@@ -158,31 +207,10 @@
                 const data = await gapi.client.drive.files.get({ fileId: res.result.files[0].id, alt: 'media' });
                 if(data.result) {
                     const tx = db.transaction("games", "readwrite");
-                    const store = tx.objectStore("games");
-                    data.result.forEach(g => store.put(g));
+                    data.result.forEach(g => tx.objectStore("games").put(g));
                     tx.oncomplete = loadLocal;
                 }
             }
-        }
-
-        function forceAuth() {
-            tokenClient.requestAccessToken({prompt: ''});
-        }
-
-        function startGapi() {
-            gapi.load('client', async () => {
-                await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
-                    callback: (resp) => { 
-                        if(!resp.error) { 
-                            document.getElementById('status').innerText = "CONNECTÉ";
-                            document.getElementById('status').style.color = "#00e676";
-                            pullFromDrive(); 
-                        } 
-                    }
-                });
-            });
         }
 
         function openGame(id) {
@@ -205,7 +233,6 @@
         };
         function closeViewer() { document.getElementById('viewer').style.display = 'none'; }
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
-
     </script>
     <script async defer src="https://apis.google.com/js/api.js" onload="startGapi()"></script>
     <script async defer src="https://accounts.google.com/gsi/client"></script>
