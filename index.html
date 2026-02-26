@@ -3,26 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PS4 Manager - V9</title>
+    <title>PS4 Manager - V11</title>
     <style>
-        :root { --ps-blue: #003791; --ps-light: #0072ce; --bg: #050505; --card: #151515; --white: #ffffff; --red: #ff5252; }
+        :root { --ps-blue: #003791; --ps-light: #0072ce; --bg: #050505; --card: #151515; --white: #ffffff; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 80px; }
-        .header { background: var(--ps-blue); height: 90px; border-bottom: 5px solid var(--white); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; position: sticky; top: 0; z-index: 100; }
-        .sync-status { font-size: 0.6rem; text-transform: uppercase; color: #00e676; }
+        .header { background: var(--ps-blue); height: 70px; border-bottom: 3px solid var(--white); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; position: sticky; top: 0; z-index: 100; }
+        #status { font-size: 0.7rem; font-weight: bold; }
         .list { padding: 10px; }
-        .game-card { background: var(--card); margin-bottom: 10px; padding: 10px; border-left: 6px solid var(--ps-blue); display: flex; align-items: center; gap: 15px; }
-        .thumb { width: 45px; height: 60px; object-fit: cover; border-radius: 3px; border: 1px solid #333; }
-        .game-num { color: var(--ps-light); font-weight: bold; min-width: 25px; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; overflow-y: auto; padding: 20px; box-sizing: border-box; }
-        .img-grid { display: flex; gap: 10px; margin: 15px 0; }
-        .img-grid img { width: 50%; border-radius: 4px; border: 1px solid #333; aspect-ratio: 3/4; object-fit: cover; }
-        input, select { width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; border-radius: 4px; box-sizing: border-box; margin-bottom: 15px; font-size: 1rem; }
-        label { font-size: 0.7rem; color: var(--ps-light); text-transform: uppercase; display: block; margin-bottom: 5px; }
-        #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; align-items: center; justify-content: center; overflow: hidden; }
-        #viewer-img { max-width: 100%; max-height: 100%; transition: transform 0.2s; touch-action: pinch-zoom; }
-        #add-btn { position: fixed; top: 110px; right: 20px; width: 65px; height: 65px; border-radius: 50%; background: var(--ps-blue); border: 2px solid white; color: white; font-size: 35px; z-index: 500; display: flex; align-items: center; justify-content: center; }
-        .save-btn { width: 100%; padding: 15px; background: var(--ps-blue); color: white; border: none; font-weight: bold; border-radius: 4px; }
-        .cloud-btn { background: #4285F4; border: none; color: white; padding: 10px; border-radius: 5px; font-weight: bold; font-size: 0.7rem; }
+        .game-card { background: var(--card); margin-bottom: 8px; padding: 10px; border-left: 5px solid var(--ps-blue); display: flex; align-items: center; gap: 12px; }
+        .thumb { width: 50px; height: 65px; object-fit: cover; border-radius: 3px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; padding: 15px; box-sizing: border-box; overflow-y: auto; }
+        #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; overflow: auto; }
+        #viewer-img { width: 100%; transition: transform 0.3s; transform-origin: top left; }
+        .btn-add { position: fixed; bottom: 20px; right: 20px; width: 65px; height: 65px; border-radius: 50%; background: var(--ps-blue); color: white; border: 2px solid white; font-size: 35px; z-index: 500; }
+        input, select { width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; border-radius: 5px; }
         .hidden { display: none; }
     </style>
 </head>
@@ -30,71 +24,67 @@
 
     <div class="header">
         <div>
-            <span style="font-weight:bold; font-size:1.2rem;">PS4 Manager</span>
-            <div id="status" class="sync-status">Mode Local</div>
+            <div style="font-weight:bold;">PS4 Manager</div>
+            <div id="status" style="color:#ff5252;">DÉCONNECTÉ</div>
         </div>
-        <div style="display:flex; gap:10px;">
-            <button class="cloud-btn" id="btn-cloud" onclick="forceAuth()">☁️ DRIVE</button>
-            <button onclick="toggleDeleteMode()" id="trash-btn" style="background:none; border:none; color:white; font-size:24px;">🗑️</button>
-        </div>
+        <button onclick="forceAuth()" id="drive-btn" style="background:#4285F4; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold;">SYNC CLOUD</button>
     </div>
 
     <div id="game-list" class="list"></div>
-    <button id="add-btn" onclick="startSequence()">+</button>
+    <button class="btn-add" onclick="startSequence()">+</button>
     <input type="file" id="cam" accept="image/*" capture="environment" class="hidden">
 
     <div id="modal" class="modal">
-        <button onclick="closeModal()" style="float:right; background:none; border:none; color:white; font-size:35px;">✕</button>
-        <h2 style="margin-top:0;">Détails</h2>
-        <label>Titre</label><input type="text" id="m-title">
-        <div class="img-grid">
-            <img id="m-r" src="" onclick="openFullscreen(this.src)">
-            <img id="m-v" src="" onclick="openFullscreen(this.src)">
+        <h2>Détails du Jeu</h2>
+        <input type="text" id="m-title" placeholder="Titre">
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <img id="m-r" style="width:50%; aspect-ratio:3/4; object-fit:cover; border:1px solid #444;" onclick="openFullscreen(this.src)">
+            <img id="m-v" style="width:50%; aspect-ratio:3/4; object-fit:cover; border:1px solid #444;" onclick="openFullscreen(this.src)">
         </div>
-        <label>Joueurs</label>
         <select id="m-players">
             <option value="1 joueur">1 joueur</option>
-            <option value="1 à 2 joueurs">1 à 2 joueurs</option>
-            <option value="1 à 4 joueurs">1 à 4 joueurs</option>
+            <option value="1-2 joueurs">1-2 joueurs</option>
+            <option value="1-4 joueurs">1-4 joueurs</option>
         </select>
-        <label>Prêt à</label><input type="text" id="m-loan">
-        <button class="save-btn" onclick="saveGame()">ENREGISTRER</button>
+        <input type="text" id="m-loan" placeholder="Prêté à...">
+        <button onclick="saveGame()" style="width:100%; padding:15px; background:var(--ps-blue); color:white; border:none; font-weight:bold; border-radius:5px;">SAUVEGARDER (LOCAL + CLOUD)</button>
+        <button onclick="closeModal()" style="width:100%; padding:10px; background:none; color:gray; border:none; margin-top:10px;">Fermer</button>
     </div>
 
     <div id="viewer" onclick="closeViewer()"><img id="viewer-img" src=""></div>
 
     <script>
         /* --- CONFIGURATION --- */
-        const CLIENT_ID = '146086087886-mraspoquqjd6n2ntug7sl6t0brsed5fj.apps.googleusercontent.com'; 
-        const API_KEY = 'AIzaSyC1M_T9_Pf9kxnbulWhtBy4DzXIwzsTLZ0';
+        const CLIENT_ID = 'VOTRE_ID_CLIENT'; 
+        const API_KEY = 'VOTRE_CLE_API';
 
-        let db, games = [], step = 1, rectoTemp = null, activeId = null, isDeleteMode = false;
-        let selectedForDelete = new Set();
-        let tokenClient;
+        let db, games = [], step = 1, rectoTemp = null, activeId = null, tokenClient;
 
-        // DB Locale
-        const req = indexedDB.open("LudoPS4_V9", 1);
+        // 1. Initialisation de la mémoire interne (IndexedDB)
+        const req = indexedDB.open("PS4_Manager_Internal", 1);
         req.onupgradeneeded = e => e.target.result.createObjectStore("games", {keyPath: "id", autoIncrement: true});
-        req.onsuccess = e => { db = e.target.result; fetchAll(); };
+        req.onsuccess = e => { db = e.target.result; loadLocal(); };
 
-        function fetchAll() {
-            const tx = db.transaction("games", "readonly");
-            tx.objectStore("games").getAll().onsuccess = e => { games = e.target.result; display(); };
+        function loadLocal() {
+            db.transaction("games", "readonly").objectStore("games").getAll().onsuccess = e => {
+                games = e.target.result;
+                render();
+            };
         }
 
-        function display() {
+        function render() {
             const list = document.getElementById('game-list');
             list.innerHTML = "";
             games.sort((a,b) => a.title.localeCompare(b.title)).forEach((g, i) => {
                 const el = document.createElement('div');
-                el.className = `game-card ${selectedForDelete.has(g.id) ? 'to-delete' : ''}`;
-                el.onclick = () => isDeleteMode ? selectDelete(el, g.id) : openGame(g.id);
-                el.innerHTML = `<span class="game-num">${i + 1}.</span><img src="${g.r}" class="thumb"><div style="flex-grow:1"><div style="font-weight:bold;">${g.title}</div><div style="font-size:0.7rem; opacity:0.6;">${g.players}</div></div>`;
+                el.className = 'game-card';
+                el.onclick = () => openGame(g.id);
+                el.innerHTML = `<b style="color:var(--ps-light); width:20px;">${i+1}</b><img src="${g.r}" class="thumb"><div><b>${g.title}</b><br><small>${g.players}</small></div>`;
                 list.appendChild(el);
             });
         }
 
-        // --- App ---
+        // 2. Gestion Appareil Photo
         function startSequence() {
             document.getElementById('cam').onchange = e => {
                 const fr = new FileReader();
@@ -113,87 +103,109 @@
             document.getElementById('modal').style.display = 'block';
         }
 
-        function saveGame() {
-            const g = { title: document.getElementById('m-title').value || "Sans titre", players: document.getElementById('m-players').value, loan: document.getElementById('m-loan').value, r: document.getElementById('m-r').src, v: document.getElementById('m-v').src };
+        // 3. Sauvegarde Double (Interne + Drive)
+        async function saveGame() {
+            const g = { 
+                title: document.getElementById('m-title').value || "Sans titre", 
+                players: document.getElementById('m-players').value, 
+                loan: document.getElementById('m-loan').value, 
+                r: document.getElementById('m-r').src, 
+                v: document.getElementById('m-v').src 
+            };
+            
             const tx = db.transaction("games", "readwrite");
             if(activeId) { g.id = activeId; tx.objectStore("games").put(g); }
             else { tx.objectStore("games").add(g); }
-            tx.oncomplete = () => { closeModal(); fetchAll(); syncToDrive(); };
+            
+            tx.oncomplete = async () => { 
+                closeModal(); 
+                loadLocal(); 
+                await syncToDrive(); // Force l'envoi vers Google immédiatement
+            };
         }
 
-        function openGame(id) {
-            const g = games.find(x => x.id === id); activeId = id;
-            document.getElementById('m-title').value = g.title; document.getElementById('m-players').value = g.players;
-            document.getElementById('m-loan').value = g.loan; document.getElementById('m-r').src = g.r; document.getElementById('m-v').src = g.v;
-            document.getElementById('modal').style.display = 'block';
-        }
-
-        let currentScale = 1;
-        function openFullscreen(src) {
-            document.getElementById('viewer-img').src = src; document.getElementById('viewer').style.display = 'flex';
-            currentScale = 1; document.getElementById('viewer-img').style.transform = 'scale(1)';
-        }
-        document.getElementById('viewer-img').onclick = (e) => { e.stopPropagation(); currentScale = (currentScale === 1) ? 2.5 : 1; document.getElementById('viewer-img').style.transform = `scale(${currentScale})`; };
-        function closeViewer() { document.getElementById('viewer').style.display = 'none'; }
-        function closeModal() { document.getElementById('modal').style.display = 'none'; }
-
-        // --- Drive Fix ---
-        function forceAuth() {
-            try {
-                if (!tokenClient) {
-                    tokenClient = google.accounts.oauth2.initTokenClient({
-                        client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
-                        callback: async (resp) => { if (!resp.error) { document.getElementById('status').innerText = "CONNECTÉ"; gapi.client.setToken(resp); pullFromDrive(); } }
-                    });
-                }
-                tokenClient.requestAccessToken({prompt: 'consent'});
-            } catch (err) { alert("Erreur d'initialisation Google : " + err.message); }
-        }
-
+        // 4. Synchronisation Réelle
         async function syncToDrive() {
-            if (!gapi.client.getToken()) return;
+            const token = gapi.client.getToken();
+            if (!token) { alert("Connectez-vous au Drive pour sauvegarder à distance."); return; }
+            
+            document.getElementById('status').innerText = "ENVOI CLOUD...";
             const content = JSON.stringify(games);
-            const res = await gapi.client.drive.files.list({ q: "name='ludo_cloud.json'" });
+            
+            // Chercher si le fichier existe déjà
+            const res = await gapi.client.drive.files.list({ q: "name='ludo_cloud.json' and trashed=false" });
             const fileId = res.result.files[0]?.id;
+            
             const metadata = { name: 'ludo_cloud.json', mimeType: 'application/json' };
             const form = new FormData();
             form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
             form.append('file', new Blob([content], {type: 'application/json'}));
-            await fetch(`https://www.googleapis.com/upload/drive/v3/files${fileId ? '/'+fileId : ''}?uploadType=multipart`, {
+
+            const url = fileId ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart` : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
+            
+            await fetch(url, {
                 method: fileId ? 'PATCH' : 'POST',
-                headers: { Authorization: `Bearer ${gapi.client.getToken().access_token}` },
+                headers: { Authorization: `Bearer ${token.access_token}` },
                 body: form
             });
             document.getElementById('status').innerText = "CLOUD À JOUR";
+            document.getElementById('status').style.color = "#00e676";
         }
 
         async function pullFromDrive() {
-            const res = await gapi.client.drive.files.list({ q: "name='ludo_cloud.json'" });
+            const res = await gapi.client.drive.files.list({ q: "name='ludo_cloud.json' and trashed=false" });
             if (res.result.files.length > 0) {
                 const data = await gapi.client.drive.files.get({ fileId: res.result.files[0].id, alt: 'media' });
-                if(data.result && confirm("Récupérer les jeux du Cloud ?")) {
+                if(data.result) {
                     const tx = db.transaction("games", "readwrite");
-                    data.result.forEach(g => tx.objectStore("games").put(g));
-                    tx.oncomplete = fetchAll;
+                    const store = tx.objectStore("games");
+                    data.result.forEach(g => store.put(g));
+                    tx.oncomplete = loadLocal;
                 }
             }
         }
 
-        function toggleDeleteMode() {
-            isDeleteMode = !isDeleteMode;
-            if(!isDeleteMode && selectedForDelete.size > 0) {
-                if(confirm("Supprimer ?")) {
-                    const tx = db.transaction("games", "readwrite");
-                    selectedForDelete.forEach(id => tx.objectStore("games").delete(id));
-                    tx.oncomplete = () => { selectedForDelete.clear(); fetchAll(); syncToDrive(); };
-                }
-            }
-            document.getElementById('trash-btn').innerHTML = isDeleteMode ? "✅" : "🗑️"; display();
+        function forceAuth() {
+            tokenClient.requestAccessToken({prompt: ''});
         }
-        function selectDelete(el, id) { if(selectedForDelete.has(id)) selectedForDelete.delete(id); else selectedForDelete.add(id); display(); }
-        
-        // Chargement scripts Google
-        function startGapi() { gapi.load('client', () => gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] })); }
+
+        function startGapi() {
+            gapi.load('client', async () => {
+                await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
+                    callback: (resp) => { 
+                        if(!resp.error) { 
+                            document.getElementById('status').innerText = "CONNECTÉ";
+                            document.getElementById('status').style.color = "#00e676";
+                            pullFromDrive(); 
+                        } 
+                    }
+                });
+            });
+        }
+
+        function openGame(id) {
+            const g = games.find(x => x.id === id); activeId = id;
+            document.getElementById('m-title').value = g.title;
+            document.getElementById('m-r').src = g.r; document.getElementById('m-v').src = g.v;
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        function openFullscreen(src) {
+            const v = document.getElementById('viewer');
+            const img = document.getElementById('viewer-img');
+            img.src = src; img.style.transform = "scale(1)";
+            v.style.display = 'block';
+        }
+
+        document.getElementById('viewer-img').onclick = function(e) {
+            e.stopPropagation();
+            this.style.transform = (this.style.transform === "scale(2.5)") ? "scale(1)" : "scale(2.5)";
+        };
+        function closeViewer() { document.getElementById('viewer').style.display = 'none'; }
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
     </script>
     <script async defer src="https://apis.google.com/js/api.js" onload="startGapi()"></script>
     <script async defer src="https://accounts.google.com/gsi/client"></script>
