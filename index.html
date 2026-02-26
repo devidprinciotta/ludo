@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PS4 Manager - V13</title>
+    <title>PS4 Manager - V14</title>
     <style>
-        :root { --ps-blue: #003791; --ps-light: #0072ce; --bg: #050505; --card: #151515; --white: #ffffff; }
+        :root { --ps-blue: #003791; --ps-light: #0072ce; --bg: #050505; --card: #151515; --white: #ffffff; --danger: #ff5252; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 20px; }
         
-        /* Barre supérieure modifiée */
         .header { 
             background: var(--ps-blue); 
             height: 75px; 
@@ -22,29 +21,15 @@
             z-index: 100; 
         }
 
-        .header-left { width: 30%; }
+        .header-left { width: 30%; overflow: hidden; }
         .header-right { width: 30%; text-align: right; }
-        
-        /* Nouveau bouton central dynamique */
-        .header-center { 
-            width: 40%; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-        }
+        .header-center { width: 40%; display: flex; justify-content: center; align-items: center; }
 
         #btn-main { 
-            width: 50px; 
-            height: 50px; 
-            border-radius: 50%; 
-            background: var(--white); 
-            color: var(--ps-blue); 
-            border: none; 
-            font-size: 28px; 
-            font-weight: bold; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
+            width: 50px; height: 50px; border-radius: 50%; 
+            background: var(--white); color: var(--ps-blue); 
+            border: none; font-size: 28px; font-weight: bold; 
+            display: flex; align-items: center; justify-content: center;
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
 
@@ -53,6 +38,9 @@
         .game-card { background: var(--card); margin-bottom: 8px; padding: 10px; border-left: 5px solid var(--ps-blue); display: flex; align-items: center; gap: 12px; }
         .thumb { width: 50px; height: 65px; object-fit: cover; border-radius: 3px; }
         
+        /* Style pour le nom du prêt */
+        .loan-tag { color: var(--danger); font-weight: bold; margin-left: 8px; font-size: 0.9rem; }
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; padding: 15px; box-sizing: border-box; overflow-y: auto; }
         #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; overflow: auto; }
         #viewer-img { width: 100%; transition: transform 0.3s; transform-origin: top left; }
@@ -65,8 +53,8 @@
 
     <div class="header">
         <div class="header-left">
-            <div style="font-size: 0.9rem; font-weight:bold;">PS4 Manager</div>
-            <div id="status" style="color:#ff5252;">DÉCONNECTÉ</div>
+            <div style="font-size: 0.8rem; font-weight:bold;">PS4 Manager</div>
+            <div id="status" style="color:var(--danger);">DÉCONNECTÉ</div>
         </div>
 
         <div class="header-center">
@@ -74,7 +62,7 @@
         </div>
 
         <div class="header-right">
-            <button onclick="forceAuth()" style="background:#4285F4; color:white; border:none; padding:8px; border-radius:4px; font-size: 0.7rem; font-weight:bold;">SYNC DRIVE</button>
+            <button id="sync-trigger" onclick="forceAuth()" style="background:#4285F4; color:white; border:none; padding:8px; border-radius:4px; font-size: 0.7rem; font-weight:bold;">SYNC DRIVE</button>
         </div>
     </div>
 
@@ -94,7 +82,7 @@
             <option value="1-4 joueurs">1-4 joueurs</option>
         </select>
         <input type="text" id="m-loan" placeholder="Prêté à...">
-        <button onclick="saveGame()" style="width:100%; padding:15px; background:var(--ps-blue); color:white; border:none; font-weight:bold;">SAUVEGARDER</button>
+        <button onclick="saveGame()" style="width:100%; padding:15px; background:var(--ps-blue); color:white; border:none; font-weight:bold; border-radius:5px;">SAUVEGARDER</button>
         <button onclick="closeModal()" style="width:100%; padding:10px; background:none; color:gray; border:none; margin-top:10px;">Annuler</button>
     </div>
 
@@ -106,7 +94,7 @@
 
         let db, games = [], step = 1, rectoTemp = null, activeId = null, tokenClient;
 
-        const req = indexedDB.open("PS4_Manager_DB_V13", 1);
+        const req = indexedDB.open("PS4_Manager_DB_V14", 1);
         req.onupgradeneeded = e => e.target.result.createObjectStore("games", {keyPath: "id", autoIncrement: true});
         req.onsuccess = e => { db = e.target.result; loadLocal(); };
 
@@ -124,28 +112,23 @@
                 const el = document.createElement('div');
                 el.className = 'game-card';
                 el.onclick = () => openGame(g.id);
-                el.innerHTML = `<b style="color:var(--ps-light); width:20px;">${i+1}</b><img src="${g.r}" class="thumb"><div><b>${g.title}</b><br><small>${g.players}</small></div>`;
+                // Intégration du nom du prêt en rouge
+                const loanInfo = g.loan ? `<span class="loan-tag">→ ${g.loan}</span>` : "";
+                el.innerHTML = `<b style="color:var(--ps-light); width:20px;">${i+1}</b><img src="${g.r}" class="thumb"><div><b>${g.title}</b>${loanInfo}<br><small>${g.players}</small></div>`;
                 list.appendChild(el);
             });
         }
 
-        // Séquence photo avec bouton dynamique
         function startSequence() {
             const btn = document.getElementById('btn-main');
             document.getElementById('cam').onchange = e => {
                 const fr = new FileReader();
                 fr.onload = () => {
                     if(step === 1) { 
-                        rectoTemp = fr.result; 
-                        step = 2; 
-                        btn.innerText = "2"; // Changement du signe + en 2
-                        btn.style.background = "#ff9800"; // Couleur d'alerte pour le verso
-                        btn.style.color = "white";
+                        rectoTemp = fr.result; step = 2; 
+                        btn.innerText = "2"; btn.style.background = "#ff9800"; btn.style.color = "white";
                     } else { 
-                        step = 1; 
-                        btn.innerText = "+"; // Retour au signe +
-                        btn.style.background = "white";
-                        btn.style.color = "var(--ps-blue)";
+                        step = 1; btn.innerText = "+"; btn.style.background = "white"; btn.style.color = "var(--ps-blue)";
                         showForm(rectoTemp, fr.result); 
                     }
                 };
@@ -155,7 +138,7 @@
         }
 
         function showForm(r, v) {
-            activeId = null; document.getElementById('m-title').value = "";
+            activeId = null; document.getElementById('m-title').value = ""; document.getElementById('m-loan').value = "";
             document.getElementById('m-r').src = r; document.getElementById('m-v').src = v;
             document.getElementById('modal').style.display = 'block';
         }
@@ -174,18 +157,24 @@
             tx.oncomplete = () => { closeModal(); loadLocal(); syncToDrive(); };
         }
 
-        // --- Fonctions Google Drive ---
         function startGapi() {
             gapi.load('client', async () => {
                 await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
-                    callback: (resp) => { if(!resp.error) { document.getElementById('status').innerText = "CONNECTÉ"; document.getElementById('status').style.color = "#00e676"; pullFromDrive(); } }
-                });
+                initAuth();
             });
         }
 
-        function forceAuth() { tokenClient.requestAccessToken({prompt: ''}); }
+        function initAuth() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
+                callback: (resp) => { if(!resp.error) { document.getElementById('status').innerText = "CONNECTÉ"; document.getElementById('status').style.color = "#00e676"; pullFromDrive(); } }
+            });
+        }
+
+        function forceAuth() { 
+            if(!tokenClient) initAuth(); 
+            tokenClient.requestAccessToken({prompt: ''}); 
+        }
 
         async function syncToDrive() {
             const token = gapi.client.getToken();
@@ -216,6 +205,7 @@
         function openGame(id) {
             const g = games.find(x => x.id === id); activeId = id;
             document.getElementById('m-title').value = g.title;
+            document.getElementById('m-loan').value = g.loan || "";
             document.getElementById('m-r').src = g.r; document.getElementById('m-v').src = g.v;
             document.getElementById('modal').style.display = 'block';
         }
