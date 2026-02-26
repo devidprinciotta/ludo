@@ -3,47 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PS4 Manager - V14</title>
+    <title>PS4 Manager - V15</title>
     <style>
         :root { --ps-blue: #003791; --ps-light: #0072ce; --bg: #050505; --card: #151515; --white: #ffffff; --danger: #ff5252; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 20px; }
         
         .header { 
-            background: var(--ps-blue); 
-            height: 75px; 
-            border-bottom: 3px solid var(--white); 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            padding: 0 10px; 
-            position: sticky; 
-            top: 0; 
-            z-index: 100; 
+            background: var(--ps-blue); height: 75px; border-bottom: 3px solid var(--white); 
+            display: flex; align-items: center; justify-content: space-between; padding: 0 10px; 
+            position: sticky; top: 0; z-index: 100; 
         }
 
-        .header-left { width: 30%; overflow: hidden; }
+        .header-left { width: 30%; }
         .header-right { width: 30%; text-align: right; }
-        .header-center { width: 40%; display: flex; justify-content: center; align-items: center; }
+        .header-center { width: 40%; display: flex; justify-content: center; }
 
         #btn-main { 
-            width: 50px; height: 50px; border-radius: 50%; 
-            background: var(--white); color: var(--ps-blue); 
-            border: none; font-size: 28px; font-weight: bold; 
+            width: 50px; height: 50px; border-radius: 50%; background: var(--white); 
+            color: var(--ps-blue); border: none; font-size: 28px; font-weight: bold; 
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
 
         #status { font-size: 0.6rem; font-weight: bold; }
         .list { padding: 10px; }
         .game-card { background: var(--card); margin-bottom: 8px; padding: 10px; border-left: 5px solid var(--ps-blue); display: flex; align-items: center; gap: 12px; }
         .thumb { width: 50px; height: 65px; object-fit: cover; border-radius: 3px; }
-        
-        /* Style pour le nom du prêt */
-        .loan-tag { color: var(--danger); font-weight: bold; margin-left: 8px; font-size: 0.9rem; }
+        .loan-tag { color: var(--danger); font-weight: bold; margin-left: 8px; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; padding: 15px; box-sizing: border-box; overflow-y: auto; }
-        #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; overflow: auto; }
-        #viewer-img { width: 100%; transition: transform 0.3s; transform-origin: top left; }
+        
+        /* Visionneuse simplifiée : Plein écran sans zoom */
+        #viewer { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); z-index: 2000; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        #viewer-img { max-width: 100%; max-height: 100%; object-fit: contain; }
         
         input, select { width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 10px; border-radius: 5px; }
         .hidden { display: none; }
@@ -56,13 +51,11 @@
             <div style="font-size: 0.8rem; font-weight:bold;">PS4 Manager</div>
             <div id="status" style="color:var(--danger);">DÉCONNECTÉ</div>
         </div>
-
         <div class="header-center">
             <button id="btn-main" onclick="startSequence()">+</button>
         </div>
-
         <div class="header-right">
-            <button id="sync-trigger" onclick="forceAuth()" style="background:#4285F4; color:white; border:none; padding:8px; border-radius:4px; font-size: 0.7rem; font-weight:bold;">SYNC DRIVE</button>
+            <button onclick="forceAuth()" style="background:#4285F4; color:white; border:none; padding:8px; border-radius:4px; font-size: 0.7rem; font-weight:bold;">SYNC DRIVE</button>
         </div>
     </div>
 
@@ -86,15 +79,18 @@
         <button onclick="closeModal()" style="width:100%; padding:10px; background:none; color:gray; border:none; margin-top:10px;">Annuler</button>
     </div>
 
-    <div id="viewer" onclick="closeViewer()"><img id="viewer-img" src=""></div>
+    <div id="viewer" style="display:none;" onclick="closeViewer()">
+        <img id="viewer-img" src="">
+    </div>
 
     <script>
+        // ATTENTION : Vérifiez bien ces deux lignes dans la console Google Cloud
         const CLIENT_ID = 'VOTRE_ID_CLIENT'; 
         const API_KEY = 'VOTRE_CLE_API';
 
         let db, games = [], step = 1, rectoTemp = null, activeId = null, tokenClient;
 
-        const req = indexedDB.open("PS4_Manager_DB_V14", 1);
+        const req = indexedDB.open("PS4_Manager_DB_V15", 1);
         req.onupgradeneeded = e => e.target.result.createObjectStore("games", {keyPath: "id", autoIncrement: true});
         req.onsuccess = e => { db = e.target.result; loadLocal(); };
 
@@ -112,7 +108,6 @@
                 const el = document.createElement('div');
                 el.className = 'game-card';
                 el.onclick = () => openGame(g.id);
-                // Intégration du nom du prêt en rouge
                 const loanInfo = g.loan ? `<span class="loan-tag">→ ${g.loan}</span>` : "";
                 el.innerHTML = `<b style="color:var(--ps-light); width:20px;">${i+1}</b><img src="${g.r}" class="thumb"><div><b>${g.title}</b>${loanInfo}<br><small>${g.players}</small></div>`;
                 list.appendChild(el);
@@ -157,6 +152,7 @@
             tx.oncomplete = () => { closeModal(); loadLocal(); syncToDrive(); };
         }
 
+        // --- Authentification & Cloud ---
         function startGapi() {
             gapi.load('client', async () => {
                 await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'] });
@@ -171,10 +167,7 @@
             });
         }
 
-        function forceAuth() { 
-            if(!tokenClient) initAuth(); 
-            tokenClient.requestAccessToken({prompt: ''}); 
-        }
+        function forceAuth() { if(!tokenClient) initAuth(); tokenClient.requestAccessToken({prompt: ''}); }
 
         async function syncToDrive() {
             const token = gapi.client.getToken();
@@ -202,6 +195,7 @@
             }
         }
 
+        // --- Fonctions d'affichage ---
         function openGame(id) {
             const g = games.find(x => x.id === id); activeId = id;
             document.getElementById('m-title').value = g.title;
@@ -212,15 +206,10 @@
 
         function openFullscreen(src) {
             const v = document.getElementById('viewer');
-            const img = document.getElementById('viewer-img');
-            img.src = src; img.style.transform = "scale(1)";
-            v.style.display = 'block';
+            document.getElementById('viewer-img').src = src;
+            v.style.display = 'flex';
         }
 
-        document.getElementById('viewer-img').onclick = function(e) {
-            e.stopPropagation();
-            this.style.transform = (this.style.transform === "scale(2.5)") ? "scale(1)" : "scale(2.5)";
-        };
         function closeViewer() { document.getElementById('viewer').style.display = 'none'; }
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
     </script>
