@@ -104,7 +104,7 @@
             user: "devidprinciotta",
             repo: "ludo",
             path: "ludo.json",
-            code: "1234"
+            code: "9118"
         };
 
         let games = [], currentFilter = 'ALL', isNewestFirst = false, selectedConsole = 'PS4', activeId = null, currentSha = null, pz = null, isAuthenticated = false;
@@ -119,11 +119,13 @@
         function updateUI() {
             const adminEls = document.querySelectorAll('.admin-only');
             adminEls.forEach(el => el.style.display = isAuthenticated ? 'flex' : 'none');
-            // Cas particulier pour le bouton de sauvegarde qui est en block
             const saveBtn = document.getElementById('btn-save');
             if(saveBtn) saveBtn.style.display = isAuthenticated ? 'block' : 'none';
-            
             document.getElementById('lock-btn').innerText = isAuthenticated ? "🔓" : "🔒";
+        }
+
+        function toggleRestoreMenu() {
+            alert("Fonction de restauration bientôt disponible.");
         }
 
         async function loadData() {
@@ -147,7 +149,6 @@
             const query = document.getElementById('search').value.toLowerCase();
             const list = document.getElementById('game-list');
             list.innerHTML = "";
-            
             let displayList = [...games];
             const ps4C = games.filter(g => g.console === 'PS4').length;
             const ps5C = games.filter(g => g.console === 'PS5').length;
@@ -203,10 +204,8 @@
             const btn = document.getElementById('btn-save');
             btn.disabled = true; btn.innerText = "ENVOI...";
             const g = { id: activeId || Date.now(), title: document.getElementById('m-title').value, console: selectedConsole, players: document.getElementById('m-players').value, loan: document.getElementById('m-loan').value, price: document.getElementById('m-price').value, date: document.getElementById('m-date').value, r: document.getElementById('m-r').src, v: document.getElementById('m-v').src };
-            
             if(activeId) { const idx = games.findIndex(x => x.id === activeId); games[idx] = g; } 
             else { games.push(g); }
-
             const res = await fetch(`https://api.github.com/repos/${CONFIG.user}/${CONFIG.repo}/contents/${CONFIG.path}`, {
                 method: "PUT", headers: { "Authorization": `token ${CONFIG.token}` },
                 body: JSON.stringify({ message: "Update", content: btoa(unescape(encodeURIComponent(JSON.stringify(games)))), sha: currentSha })
