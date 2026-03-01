@@ -1,5 +1,236 @@
 <!DOCTYPE html>
+<html lan<!DOCTYPE html>
 <html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PS4 Manager - GITHUB SYNC</title>
+    <style>
+        :root { --ps-blue: #003791; --ps-light: #0072ce; --bg: #050505; --card: #151515; --white: #ffffff; --danger: #ff5252; --success: #00c853; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 80px; }
+        .header { background: var(--ps-blue); height: 70px; border-bottom: 2px solid var(--white); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; position: sticky; top: 0; z-index: 100; }
+        #btn-main { width: 55px; height: 55px; border-radius: 50%; background: var(--white); color: var(--ps-blue); border: none; font-size: 30px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .game-card { background: var(--card); margin: 8px 10px; padding: 12px; border-left: 5px solid var(--ps-light); display: flex; align-items: center; gap: 15px; border-radius: 4px; position: relative; }
+        .thumb { width: 55px; height: 70px; object-fit: cover; border-radius: 3px; }
+        .loan-tag { color: var(--danger); font-weight: bold; font-size: 0.85rem; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; align-items: center; justify-content: center; }
+        input, select { width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 12px; margin-bottom: 12px; border-radius: 5px; font-size: 16px; }
+        .toolbar { position: fixed; bottom: 0; width: 100%; background: #111; padding: 10px; display: flex; justify-content: space-around; border-top: 1px solid #333; z-index: 500; }
+        .btn-tool { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        
+        /* Corbeille */
+        .btn-trash-float { position: fixed; bottom: 85px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: var(--danger); color: white; border: none; font-size: 24px; z-index: 600; display: flex; align-items: center; justify-content: center; }
+        .del-check { display: none; width: 25px; height: 25px; accent-color: var(--danger); margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div style="font-weight:bold; letter-spacing:1px;">PS4 MANAGER</div>
+        <button id="btn-main" onclick="startSequence()">+</button>
+        <div style="width: 40px;"></div>
+    </div>
+
+    <div id="game-list"></div>
+    
+    <button id="multi-del-btn" class="btn-trash-float" onclick="toggleSelectionMode()">🗑️</button>
+
+    <input type="file" id="cam" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="import-file" style="display:none;" onchange="importData(this)">
+
+    <div class="toolbar">
+        <button class="btn-tool" onclick="exportData()" style="color: var(--success);">📥 EXPORTER</button>
+        <button class="btn-tool" onclick="document.getElementById('import-file').click()">📤 IMPORTER</button>
+    </div>
+
+    <div id="modal" class="modal">
+        <h2>Détails du Jeu</h2>
+        <input type="text" id="m-title" placeholder="Nom du jeu">
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+            <img id="m-r" style="width:50%; aspect-ratio:3/4; object-fit:cover; border:1px solid #444;" onclick="openFullscreen(this.src)">
+            <img id="m-v" style="width:50%; aspect-ratio:3/4; object-fit:cover; border:1px solid #444;" onclick="openFullscreen(this.src)">
+        </div>
+        <select id="m-players">
+            <option value="1 joueur">1 joueur</option>
+            <option value="1-2 joueurs">1-2 joueurs</option>
+            <option value="1-4 joueurs">1-4 joueurs</option>
+        </select>
+        <input type="text" id="m-loan" placeholder="Prêté à...">
+        <button onclick="saveGame()" style="width:100%; padding:18px; background:var(--ps-blue); color:white; border:none; font-weight:bold; border-radius:5px; margin-top:10px;">SAUVEGARDER</button>
+        <button onclick="closeModal()" style="width:100%; padding:12px; background:none; color:gray; border:none; margin-top:10px;">Annuler</button>
+    </div>
+
+    <div id="viewer" onclick="this.style.display='none'"><img id="viewer-img" style="max-width:100%; max-height:100%;"></div>
+
+    <script>
+        // CONFIGURATION GITHUB - À REMPLIR
+        const GH_TOKEN = "TON_TOKEN_ICI";
+        const GH_USER = "TON_UTILISATEUR_ICI";
+        const GH_REPO = "ludothèque";
+        const GH_PATH = "ludo.json";
+
+        let games = [], step = 1, rectoTemp = null, activeId = null, isSelectionMode = false, currentSha = null;
+
+        // Initialisation : Chargement direct depuis GitHub
+        loadFromGithub();
+
+        async function loadFromGithub() {
+            const url = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_PATH}`;
+            try {
+                const res = await fetch(url, {
+                    headers: { "Authorization": `token ${GH_TOKEN}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    currentSha = data.sha;
+                    games = JSON.parse(atob(data.content));
+                    render();
+                }
+            } catch (err) { console.error("Erreur de chargement", err); }
+        }
+
+        async function syncToGithub() {
+            const url = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_PATH}`;
+            const content = btoa(unescape(encodeURIComponent(JSON.stringify(games))));
+            const body = {
+                message: "Mise à jour ludo",
+                content: content,
+                sha: currentSha
+            };
+
+            const res = await fetch(url, {
+                method: "PUT",
+                headers: { "Authorization": `token ${GH_TOKEN}`, "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                currentSha = data.content.sha;
+            }
+        }
+
+        function render() {
+            const list = document.getElementById('game-list');
+            list.innerHTML = "";
+            games.sort((a,b) => a.title.localeCompare(b.title)).forEach((g) => {
+                const el = document.createElement('div');
+                el.className = 'game-card';
+                const loan = g.loan ? `<span class="loan-tag">→ ${g.loan}</span>` : "";
+                el.innerHTML = `
+                    <input type="checkbox" class="del-check" data-id="${g.id}" onclick="event.stopPropagation()">
+                    <img src="${g.r}" class="thumb" onclick="if(!isSelectionMode) openGame(${g.id})">
+                    <div onclick="if(!isSelectionMode) openGame(${g.id})">
+                        <b>${g.title}</b><br>${loan}<br><small>${g.players}</small>
+                    </div>`;
+                list.appendChild(el);
+            });
+        }
+
+        function toggleSelectionMode() {
+            const checks = document.querySelectorAll('.del-check');
+            const btn = document.getElementById('multi-del-btn');
+            if (!isSelectionMode) {
+                isSelectionMode = true;
+                checks.forEach(c => c.style.display = 'block');
+                btn.innerText = "✔️";
+                btn.style.background = "#00c853";
+            } else {
+                const selected = Array.from(document.querySelectorAll('.del-check:checked')).map(c => parseInt(c.dataset.id));
+                if (selected.length > 0 && confirm("Supprimer la sélection ?")) {
+                    games = games.filter(g => !selected.includes(g.id));
+                    syncToGithub().then(() => {
+                        isSelectionMode = false;
+                        resetTrash();
+                        render();
+                    });
+                } else {
+                    isSelectionMode = false;
+                    resetTrash();
+                    render();
+                }
+            }
+        }
+
+        function resetTrash() {
+            const btn = document.getElementById('multi-del-btn');
+            btn.innerText = "🗑️";
+            btn.style.background = "var(--danger)";
+        }
+
+        function startSequence() {
+            document.getElementById('cam').click();
+        }
+
+        document.getElementById('cam').onchange = e => {
+            const fr = new FileReader();
+            fr.onload = () => {
+                if(step === 1) { rectoTemp = fr.result; step = 2; document.getElementById('btn-main').innerText = "2"; document.getElementById('btn-main').style.background = "#ff9800"; }
+                else { step = 1; document.getElementById('btn-main').innerText = "+"; document.getElementById('btn-main').style.background = "white"; showForm(rectoTemp, fr.result); }
+            };
+            fr.readAsDataURL(e.target.files[0]);
+        };
+
+        function showForm(r, v) {
+            activeId = null; document.getElementById('m-title').value = ""; document.getElementById('m-loan').value = "";
+            document.getElementById('m-r').src = r; document.getElementById('m-v').src = v;
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        function saveGame() {
+            const g = { 
+                id: activeId || Date.now(),
+                title: document.getElementById('m-title').value || "Sans titre", 
+                players: document.getElementById('m-players').value, 
+                loan: document.getElementById('m-loan').value, 
+                r: document.getElementById('m-r').src, 
+                v: document.getElementById('m-v').src 
+            };
+            
+            if(activeId) {
+                const index = games.findIndex(x => x.id === activeId);
+                games[index] = g;
+            } else {
+                games.push(g);
+            }
+            
+            syncToGithub().then(() => {
+                closeModal();
+                render();
+            });
+        }
+
+        function exportData() {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(games)], { type: 'application/json' }));
+            a.download = `PS4_Backup.json`;
+            a.click();
+        }
+
+        function importData(input) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                games = JSON.parse(reader.result);
+                syncToGithub().then(() => render());
+            };
+            reader.readAsText(input.files[0]);
+        }
+
+        function openGame(id) {
+            const g = games.find(x => x.id === id); 
+            activeId = id;
+            document.getElementById('m-title').value = g.title;
+            document.getElementById('m-loan').value = g.loan || "";
+            document.getElementById('m-r').src = g.r; 
+            document.getElementById('m-v').src = g.v;
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        function openFullscreen(src) { document.getElementById('viewer-img').src = src; document.getElementById('viewer').style.display = 'flex'; }
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    </script>
+</body>
+</html>g="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -178,3 +409,4 @@
     <script async defer src="https://accounts.google.com/gsi/client"></script>
 </body>
 </html>
+
