@@ -43,7 +43,7 @@
 
     <div class="header">
         <div class="nav-top">
-            <button class="btn-round admin-only" id="btn-restore" onclick="toggleRestoreMenu()">🕒</button>
+            <button class="btn-round admin-only" id="btn-restore" onclick="alert('Historique bientôt disponible')">🕒</button>
             <div style="flex: 1; text-align: center;">
                 <div style="font-weight:900; font-size:18px; color:white; letter-spacing:1px;">LUDOTHÈQUE</div>
                 <div id="count-bar" class="mini-stats">CHARGEMENT...</div>
@@ -104,7 +104,7 @@
             user: "devidprinciotta",
             repo: "ludo",
             path: "ludo.json",
-            code: "1234"
+            code: "9118"
         };
 
         let games = [], currentFilter = 'ALL', isNewestFirst = false, selectedConsole = 'PS4', activeId = null, currentSha = null, pz = null, isAuthenticated = false;
@@ -112,17 +112,16 @@
         function askAuth() {
             if(isAuthenticated) { isAuthenticated = false; updateUI(); return; }
             const p = prompt("CODE ADMINISTRATEUR :");
-            if(p === CONFIG.code) { isAuthenticated = true; updateUI(); }
+            // Utilisation de trim() pour ignorer les espaces accidentels
+            if(p !== null && p.trim() === CONFIG.code) { isAuthenticated = true; updateUI(); }
             else if(p !== null) { alert("CODE INCORRECT."); }
         }
 
         function updateUI() {
             const adminEls = document.querySelectorAll('.admin-only');
             adminEls.forEach(el => el.style.display = isAuthenticated ? 'flex' : 'none');
-            // Cas particulier pour le bouton de sauvegarde qui est en block
             const saveBtn = document.getElementById('btn-save');
             if(saveBtn) saveBtn.style.display = isAuthenticated ? 'block' : 'none';
-            
             document.getElementById('lock-btn').innerText = isAuthenticated ? "🔓" : "🔒";
         }
 
@@ -147,7 +146,6 @@
             const query = document.getElementById('search').value.toLowerCase();
             const list = document.getElementById('game-list');
             list.innerHTML = "";
-            
             let displayList = [...games];
             const ps4C = games.filter(g => g.console === 'PS4').length;
             const ps5C = games.filter(g => g.console === 'PS5').length;
@@ -161,86 +159,4 @@
 
             displayList.forEach((g, idx) => {
                 const el = document.createElement('div');
-                el.className = `game-card ${g.console === 'PS5' ? 'card-ps5' : 'card-ps4'}`;
-                el.innerHTML = `
-                    <div class="game-num">${idx + 1}</div>
-                    <img src="${g.r}" class="thumb" onclick="openGame(${g.id})">
-                    <div onclick="openGame(${g.id})" style="flex:1">
-                        <div style="font-weight:900; font-size:16px; text-transform:uppercase;">${g.title}</div>
-                        <div style="font-size:11px; opacity:0.8; margin-top:3px;">${g.players} ${g.loan ? ' | '+g.loan : ''}</div>
-                    </div>`;
-                list.appendChild(el);
-            });
-        }
-
-        let step = 1, rectoTemp = null;
-        function startSequence() {
-            if(!isAuthenticated) return;
-            step = 1; document.getElementById('cam').click();
-        }
-
-        document.getElementById('cam').onchange = e => {
-            const fr = new FileReader();
-            fr.onload = () => {
-                if(step === 1) { rectoTemp = fr.result; step = 2; setTimeout(() => document.getElementById('cam').click(), 400); }
-                else { showForm(rectoTemp, fr.result); }
-            };
-            if(e.target.files[0]) fr.readAsDataURL(e.target.files[0]);
-        };
-
-        function showForm(r, v) {
-            activeId = null; 
-            document.getElementById('m-r').src = r; 
-            document.getElementById('m-v').src = v;
-            document.getElementById('m-title').value = ""; 
-            document.getElementById('m-price').value = "";
-            document.getElementById('m-date').value = "";
-            document.getElementById('modal').style.display = 'block';
-            setTimeout(() => document.getElementById('m-title').focus(), 400);
-        }
-
-        async function saveGame() {
-            const btn = document.getElementById('btn-save');
-            btn.disabled = true; btn.innerText = "ENVOI...";
-            const g = { id: activeId || Date.now(), title: document.getElementById('m-title').value, console: selectedConsole, players: document.getElementById('m-players').value, loan: document.getElementById('m-loan').value, price: document.getElementById('m-price').value, date: document.getElementById('m-date').value, r: document.getElementById('m-r').src, v: document.getElementById('m-v').src };
-            
-            if(activeId) { const idx = games.findIndex(x => x.id === activeId); games[idx] = g; } 
-            else { games.push(g); }
-
-            const res = await fetch(`https://api.github.com/repos/${CONFIG.user}/${CONFIG.repo}/contents/${CONFIG.path}`, {
-                method: "PUT", headers: { "Authorization": `token ${CONFIG.token}` },
-                body: JSON.stringify({ message: "Update", content: btoa(unescape(encodeURIComponent(JSON.stringify(games)))), sha: currentSha })
-            });
-            if(res.ok) location.reload();
-        }
-
-        function openGame(id) {
-            const g = games.find(x => x.id === id);
-            activeId = id; selectConsole(g.console || 'PS4');
-            document.getElementById('m-title').value = g.title;
-            document.getElementById('m-r').src = g.r; document.getElementById('m-v').src = g.v;
-            document.getElementById('m-price').value = g.price || "";
-            document.getElementById('m-date').value = g.date || "";
-            document.getElementById('modal').style.display = 'block';
-        }
-
-        function selectConsole(c) { 
-            selectedConsole = c;
-            document.getElementById('sel-ps4').style.opacity = c==='PS4'?'1':'0.3';
-            document.getElementById('sel-ps5').style.opacity = c==='PS5'?'1':'0.3';
-        }
-
-        function openFullscreen(src) {
-            document.getElementById('viewer-img').src = src;
-            document.getElementById('viewer').style.display = 'block';
-            setTimeout(() => { pz = new PinchZoom(document.getElementById('pz-area'), { draggableUnzoomed: false }); }, 100);
-        }
-        function closeFullscreen() { document.getElementById('viewer').style.display = 'none'; if(pz) pz.destroy(); }
-        function closeModal() { document.getElementById('modal').style.display = 'none'; }
-        function setFilter(f) { currentFilter = f; render(); }
-        function toggleSort() { isNewestFirst = !isNewestFirst; document.getElementById('sort-btn').innerText = isNewestFirst ? "A ➔ Z" : "NOUVEAUTÉS"; render(); }
-
-        window.onload = loadData;
-    </script>
-</body>
-</html>
+                el.className =
