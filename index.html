@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PS Collection - V10.4</title>
+    <title>PS Collection - V10.5</title>
     <script src="https://unpkg.com/pinch-zoom-js@2.3.4/dist/pinch-zoom.min.js"></script>
     <style>
         :root { --ps4-blue: #003791; --ps5-white: #f5f5f5; --bg: #050505; --white: #ffffff; --warn: #ff9800; }
@@ -36,7 +36,7 @@
             <button class="btn-round admin-only" id="btn-restore" onclick="alert('Restore active')">🕒</button>
             <div style="flex: 1; text-align: center;">
                 <div style="font-weight:900; font-size:18px; color:white; letter-spacing:1px;">LUDOTHÈQUE</div>
-                <div id="count-bar" class="mini-stats">CHARGEMENT...</div>
+                <div id="count-bar" class="mini-stats">PRÊT</div>
             </div>
             <div style="display:flex; gap:5px; align-items:center;">
                 <button id="lock-btn" onclick="askAuth()">🔒</button>
@@ -87,22 +87,27 @@
         let games = [], currentFilter = 'ALL', isNewestFirst = false, selectedConsole = 'PS4', activeId = null, currentSha = null, pz = null, isAuthenticated = false;
 
         function askAuth() {
-            if(isAuthenticated) { isAuthenticated = false; updateUI(); return; }
-            const p = prompt("ENTREZ LE CODE :");
-            if (p !== null) {
-                const input = p.trim();
-                // Vérification forcée
-                if (input === "9118") {
+            if(isAuthenticated) { 
+                isAuthenticated = false; 
+                updateUI(); 
+                return; 
+            }
+            const userInput = prompt("CODE ADMINISTRATEUR :");
+            if (userInput !== null) {
+                // Utilisation d'une Regex pour forcer la validation numérique exacte de 9118
+                const checker = new RegExp('^9118$');
+                if (checker.test(userInput.trim())) {
                     isAuthenticated = true;
                     updateUI();
                 } else {
-                    alert("ERREUR : Code '" + input + "' refusé.");
+                    alert("ACCÈS REFUSÉ.");
                 }
             }
         }
 
         function updateUI() {
-            document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAuthenticated ? 'flex' : 'none');
+            const adminEls = document.querySelectorAll('.admin-only');
+            adminEls.forEach(el => el.style.display = isAuthenticated ? 'flex' : 'none');
             const saveBtn = document.getElementById('btn-save');
             if(saveBtn) saveBtn.style.display = isAuthenticated ? 'block' : 'none';
             document.getElementById('lock-btn').innerText = isAuthenticated ? "🔓" : "🔒";
@@ -120,6 +125,7 @@
                     render();
                 }
             } catch (e) { console.error(e); }
+            updateUI();
         }
 
         function render() {
