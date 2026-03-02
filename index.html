@@ -3,84 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PS Collection - V11.1</title>
+    <title>PS Collection - V11.2</title>
     <script src="https://unpkg.com/pinch-zoom-js@2.3.4/dist/pinch-zoom.min.js"></script>
     <style>
         :root { --ps4-blue: #003791; --ps5-white: #f5f5f5; --bg: #050505; --white: #ffffff; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 50px; }
-        .header { background: var(--ps4-blue); padding: 8px 15px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid white; }
-        .nav-top { display: flex; align-items: center; justify-content: space-between; }
-        .mini-stats { font-size: 9px; opacity: 0.7; letter-spacing: 1px; margin-top: 2px; text-transform: uppercase; text-align: center; }
-        .search-bar { width: 100%; padding: 10px; margin-top: 8px; border-radius: 6px; border: none; background: rgba(255,255,255,0.15); color: white; font-size: 16px; box-sizing: border-box; }
-        .filters { display: flex; gap: 5px; margin-top: 8px; }
-        .f-btn { flex: 1; padding: 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.5); text-align: center; font-weight: bold; font-size: 10px; cursor: pointer; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 50px; overflow-x: hidden; }
+        
+        .header { background: var(--ps4-blue); padding: 10px 5px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid white; }
+        .nav-grid { display: grid; grid-template-columns: 60px 1fr 60px; align-items: center; }
+        
+        .mini-stats { font-size: 9px; opacity: 0.8; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; text-align: center; }
+        .search-bar { width: 95%; padding: 10px; margin: 10px auto; display: block; border-radius: 6px; border: none; background: rgba(255,255,255,0.15); color: white; font-size: 16px; box-sizing: border-box; }
+        
         .game-card { margin: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 8px; cursor: pointer; }
         .card-ps4 { background: var(--ps4-blue); color: white; }
         .card-ps5 { background: var(--ps5-white); color: #050505; }
-        .thumb { width: 55px; height: 75px; object-fit: cover; border-radius: 4px; }
+        .thumb { width: 55px; height: 75px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); }
+        
         .admin-only { display: none; }
-        #lock-btn { background: none; border: none; color: white; font-size: 18px; cursor: pointer; }
+        .btn-header { background: none; border: 1px solid white; color: white; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
+        .btn-add { background: white !important; color: var(--ps4-blue) !important; font-size: 24px; font-weight: bold; border: none; }
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 1000; padding: 15px; box-sizing: border-box; overflow-y: auto; }
         input, select { width: 100%; background: #222; border: 1px solid #444; color: white; padding: 12px; margin-bottom: 10px; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
         
-        .price-row { display: flex; align-items: center; background: #222; border: 1px solid #444; border-radius: 6px; margin-bottom: 10px; padding-right: 12px; }
+        .price-row { display: flex; align-items: center; background: #222; border: 1px solid #444; border-radius: 6px; margin-bottom: 10px; padding-right: 15px; }
         .price-row input { margin-bottom: 0; border: none; flex: 1; }
-        .currency { font-size: 16px; font-weight: bold; color: white; }
+        .currency { font-size: 18px; font-weight: bold; color: white; }
 
-        #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; touch-action: none; }
+        #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; }
         #viewer-img { width: 100%; height: 100%; object-fit: contain; }
-        #close-viewer { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.5); border: none; border-radius: 50%; width: 40px; height: 40px; z-index: 2100; font-size: 20px; }
+        #close-viewer { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.5); border: none; border-radius: 50%; width: 45px; height: 45px; z-index: 2100; font-size: 25px; }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="nav-top">
-            <button class="admin-only" style="background:none; border:1px solid white; color:white; width:45px; height:45px; border-radius:50%;">🕒</button>
-            <div style="flex: 1; text-align: center;">
-                <div style="font-weight:900; font-size:18px;">LUDOTHÈQUE</div>
-                <div id="count-bar" class="mini-stats">PRÊT</div>
+        <div class="nav-grid">
+            <div style="display:flex; justify-content:center;"><button class="btn-header admin-only" id="btn-hist">🕒</button></div>
+            <div style="text-align:center;">
+                <div style="font-weight:900; font-size:16px; letter-spacing:1px;">LUDOTHÈQUE</div>
+                <div id="count-bar" class="mini-stats">CHARGEMENT...</div>
             </div>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <button id="lock-btn" onclick="askAuth()">🔒</button>
-                <button id="btn-main" class="admin-only" onclick="startSequence()" style="background:white; color:var(--ps4-blue); font-size:24px; width:45px; height:45px; border-radius:50%; border:none;">+</button>
+            <div style="display:flex; gap:5px; justify-content: center; align-items:center;">
+                <button class="btn-header" id="lock-btn" onclick="askAuth()" style="border:none;">🔒</button>
+                <button class="btn-header btn-add admin-only" onclick="startSequence()">+</button>
             </div>
         </div>
-        <input type="text" id="search" class="search-bar" placeholder="RECHERCHER..." oninput="render()">
-        <div class="filters">
-            <div class="f-btn" onclick="setFilter('PS4')">PS4</div>
-            <div class="f-btn" onclick="setFilter('PS5')">PS5</div>
-            <div class="f-btn" onclick="setFilter('ALL')">TOUT</div>
-        </div>
+        <input type="text" id="search" class="search-bar" placeholder="RECHERCHER UN JEU..." oninput="render()">
     </div>
 
     <div id="game-list"></div>
     <input type="file" id="cam" accept="image/*" capture="environment" style="display:none;">
 
     <div id="modal" class="modal">
-        <div style="font-weight:bold; margin-bottom:15px; text-align:center;">DÉTAILS DU JEU</div>
+        <div style="font-weight:bold; margin-bottom:20px; text-align:center; font-size:18px;">FICHE DU JEU</div>
         <div style="display:flex; gap:10px; margin-bottom:15px;">
-            <div id="sel-ps4" style="flex:1; padding:15px; background:var(--ps4-blue); text-align:center; border-radius:8px; font-weight:bold;" onclick="selectConsole('PS4')">PS4</div>
-            <div id="sel-ps5" style="flex:1; padding:15px; background:white; color:black; text-align:center; border-radius:8px; font-weight:bold;" onclick="selectConsole('PS5')">PS5</div>
+            <div id="sel-ps4" style="flex:1; padding:15px; background:var(--ps4-blue); text-align:center; border-radius:8px; font-weight:bold; border:2px solid white;" onclick="selectConsole('PS4')">PS4</div>
+            <div id="sel-ps5" style="flex:1; padding:15px; background:white; color:black; text-align:center; border-radius:8px; font-weight:bold; border:2px solid #ccc;" onclick="selectConsole('PS5')">PS5</div>
         </div>
-        <input type="text" id="m-title" placeholder="TITRE">
-        <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <img id="m-r" style="width:50%; aspect-ratio:3/4; object-fit:cover; border-radius:6px;" onclick="openFullscreen(this.src)">
-            <img id="m-v" style="width:50%; aspect-ratio:3/4; object-fit:cover; border-radius:6px;" onclick="openFullscreen(this.src)">
+        <input type="text" id="m-title" placeholder="NOM DU JEU">
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+            <img id="m-r" style="width:50%; aspect-ratio:3/4; object-fit:cover; border-radius:6px; border:1px solid #555;" onclick="openFullscreen(this.src)">
+            <img id="m-v" style="width:50%; aspect-ratio:3/4; object-fit:cover; border-radius:6px; border:1px solid #555;" onclick="openFullscreen(this.src)">
         </div>
-        <div class="price-row">
-            <input type="number" id="m-price" placeholder="PRIX">
-            <span class="currency">€</span>
-        </div>
-        <input type="text" id="m-date" placeholder="DATE (JJ/MM/AA)" maxlength="8">
+        <div class="price-row"><input type="number" id="m-price" placeholder="PRIX D'ACHAT"><span class="currency">€</span></div>
+        <input type="text" id="m-date" placeholder="DATE D'ACHAT (JJ/MM/AA)" maxlength="8">
         <select id="m-players">
             <option value="1 Joueur">1 Joueur</option>
             <option value="1-2 Joueurs">1-2 Joueurs</option>
             <option value="1-4 Joueurs">1-4 Joueurs</option>
             <option value="1-X">1-X</option>
         </select>
-        <input type="text" id="m-loan" placeholder="PRÊTÉ À...">
-        <button id="btn-save" class="admin-only" onclick="saveGame()" style="width:100%; padding:18px; background:var(--ps4-blue); color:white; border:none; font-weight:bold; border-radius:10px;">SAUVEGARDER</button>
-        <button onclick="closeModal()" style="width:100%; background:none; color:gray; border:none; margin-top:10px;">ANNULER</button>
+        <input type="text" id="m-loan" placeholder="PRÊTÉ À (NOM)">
+        <button id="btn-save" class="admin-only" onclick="saveGame()" style="width:100%; padding:20px; background:#28a745; color:white; border:none; font-weight:900; border-radius:10px; font-size:16px;">VALIDER LA SAUVEGARDE</button>
+        <button onclick="closeModal()" style="width:100%; background:none; color:gray; border:none; margin-top:15px; font-weight:bold;">RETOUR</button>
     </div>
 
     <div id="viewer"><button id="close-viewer" onclick="closeFullscreen()">×</button><div id="pz-area" style="width:100%; height:100%;"><img id="viewer-img"></div></div>
@@ -94,7 +90,7 @@
             code: "9118"
         };
 
-        let games = [], currentFilter = 'ALL', selectedConsole = 'PS4', activeId = null, currentSha = null, pz = null, isAuthenticated = false;
+        let games = [], selectedConsole = 'PS4', activeId = null, pz = null, isAuthenticated = false;
 
         document.getElementById('m-date').addEventListener('input', function(e) {
             let v = e.target.value.replace(/\D/g,'').slice(0,6);
@@ -109,8 +105,9 @@
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
-                    const scale = 800 / img.width;
-                    canvas.width = 800;
+                    const maxW = 800;
+                    const scale = maxW / img.width;
+                    canvas.width = maxW;
                     canvas.height = img.height * scale;
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     resolve(canvas.toDataURL('image/jpeg', 0.7));
@@ -120,13 +117,12 @@
         }
 
         function askAuth() {
-            const p = prompt("CODE :");
+            const p = prompt("CODE ADMINISTRATEUR :");
             if (p && p.trim() === CONFIG.code) { isAuthenticated = true; updateUI(); }
         }
 
         function updateUI() {
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAuthenticated ? 'flex' : 'none');
-            document.getElementById('btn-save').style.display = isAuthenticated ? 'block' : 'none';
             document.getElementById('lock-btn').innerText = isAuthenticated ? "🔓" : "🔒";
         }
 
@@ -136,7 +132,6 @@
             });
             if(res.ok) {
                 const data = await res.json();
-                currentSha = data.sha;
                 games = JSON.parse(decodeURIComponent(escape(atob(data.content))));
                 render();
             }
@@ -146,25 +141,24 @@
             const list = document.getElementById('game-list');
             list.innerHTML = "";
             let displayList = [...games].sort((a,b) => a.title.localeCompare(b.title));
-            if(currentFilter !== 'ALL') displayList = displayList.filter(g => g.console === currentFilter);
-            document.getElementById('count-bar').innerText = `${games.length} JEUX TOTAL`;
+            document.getElementById('count-bar').innerText = `${games.length} JEUX DISPONIBLES`;
             displayList.forEach(g => {
                 const el = document.createElement('div');
                 el.className = `game-card ${g.console === 'PS5' ? 'card-ps5' : 'card-ps4'}`;
                 el.onclick = () => openGame(g.id);
-                el.innerHTML = `<img src="${g.r}" class="thumb"><div style="flex:1"><div style="font-weight:900;">${g.title}</div><div>${g.date || ''}</div></div>`;
+                el.innerHTML = `<img src="${g.r}" class="thumb"><div style="flex:1"><div style="font-weight:900;">${g.title}</div><div style="font-size:11px;opacity:0.8;">${g.date || ''}</div></div>`;
                 list.appendChild(el);
             });
         }
 
-        let step = 1, rectoTemp = null;
-        function startSequence() { if(!isAuthenticated) return; step = 1; document.getElementById('cam').click(); }
+        let step = 1, rTemp = null;
+        function startSequence() { step = 1; document.getElementById('cam').click(); }
         document.getElementById('cam').onchange = e => {
             const fr = new FileReader();
             fr.onload = async () => {
-                const compressed = await compressImg(fr.result);
-                if(step === 1) { rectoTemp = compressed; step = 2; setTimeout(() => document.getElementById('cam').click(), 500); }
-                else { showForm(rectoTemp, compressed); }
+                const comp = await compressImg(fr.result);
+                if(step === 1) { rTemp = comp; step = 2; setTimeout(() => document.getElementById('cam').click(), 600); }
+                else { showForm(rTemp, comp); }
             };
             if(e.target.files[0]) fr.readAsDataURL(e.target.files[0]);
         };
@@ -176,8 +170,14 @@
 
         async function saveGame() {
             const btn = document.getElementById('btn-save');
-            btn.innerText = "COMPRESSION & ENVOI...";
+            btn.innerText = "SYNCHRONISATION GITHUB...";
             btn.disabled = true;
+
+            const meta = await fetch(`https://api.github.com/repos/${CONFIG.user}/${CONFIG.repo}/contents/${CONFIG.path}?t=${Date.now()}`, {
+                headers: { "Authorization": `token ${CONFIG.token}` }
+            });
+            const metaData = await meta.json();
+            const latestSha = metaData.sha;
 
             const g = { id: activeId || Date.now(), title: document.getElementById('m-title').value, console: selectedConsole, players: document.getElementById('m-players').value, loan: document.getElementById('m-loan').value, price: document.getElementById('m-price').value, date: document.getElementById('m-date').value, r: document.getElementById('m-r').src, v: document.getElementById('m-v').src };
             
@@ -188,11 +188,11 @@
             const res = await fetch(`https://api.github.com/repos/${CONFIG.user}/${CONFIG.repo}/contents/${CONFIG.path}`, {
                 method: "PUT",
                 headers: { "Authorization": `token ${CONFIG.token}` },
-                body: JSON.stringify({ message: "Update", content: btoa(unescape(encodeURIComponent(JSON.stringify(newGames)))), sha: currentSha })
+                body: JSON.stringify({ message: "Update", content: btoa(unescape(encodeURIComponent(JSON.stringify(newGames)))), sha: latestSha })
             });
 
             if(res.ok) location.reload();
-            else { alert("Erreur serveur."); btn.disabled = false; btn.innerText = "SAUVEGARDER"; }
+            else { alert("Erreur Serveur."); btn.disabled = false; btn.innerText = "VALIDER LA SAUVEGARDE"; }
         }
 
         function openGame(id) {
@@ -206,15 +206,10 @@
         }
 
         function selectConsole(c) { selectedConsole = c; document.getElementById('sel-ps4').style.opacity = c==='PS4'?'1':'0.3'; document.getElementById('sel-ps5').style.opacity = c==='PS5'?'1':'0.3'; }
-        function openFullscreen(src) { 
-            document.getElementById('viewer-img').src = src; 
-            document.getElementById('viewer').style.display = 'block'; 
-            setTimeout(() => { pz = new PinchZoom(document.getElementById('pz-area')); }, 200); 
-        }
+        function openFullscreen(src) { document.getElementById('viewer-img').src = src; document.getElementById('viewer').style.display = 'block'; setTimeout(() => { pz = new PinchZoom(document.getElementById('pz-area')); }, 200); }
         function closeFullscreen() { document.getElementById('viewer').style.display = 'none'; if(pz) pz.destroy(); }
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
         function setFilter(f) { currentFilter = f; render(); }
-
         window.onload = loadData;
     </script>
 </body>
