@@ -3,214 +3,774 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PS Collection - V11.2</title>
-    <script src="https://unpkg.com/pinch-zoom-js@2.3.4/dist/pinch-zoom.min.js"></script>
+    <title>Ludotheque DEVID v4.1</title>
     <style>
-        :root { --ps4-blue: #003791; --ps5-white: #f5f5f5; --bg: #050505; --white: #ffffff; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 50px; overflow-x: hidden; }
+        :root { --ps4-blue: #003791; --bg: #050505; --accent: #00d4ff; --danger: #ff4444; --success: #28a745; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding-bottom: 70px; overflow-x: hidden; }
         
-        .header { background: var(--ps4-blue); padding: 10px 5px; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid white; }
-        .nav-grid { display: grid; grid-template-columns: 60px 1fr 60px; align-items: center; }
+        .flash-active { animation: flash-anim 0.1s ease-out; }
+        @keyframes flash-anim { 0% { background: white; } 100% { background: var(--bg); } }
+
+        .header { 
+            background: var(--ps4-blue); 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+            border-bottom: 2px solid white;
+        }
         
-        .mini-stats { font-size: 9px; opacity: 0.8; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; text-align: center; }
-        .search-bar { width: 95%; padding: 10px; margin: 10px auto; display: block; border-radius: 6px; border: none; background: rgba(255,255,255,0.15); color: white; font-size: 16px; box-sizing: border-box; }
+        .header-top {
+            padding: 10px 5px;
+        }
         
-        .game-card { margin: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 8px; cursor: pointer; }
-        .card-ps4 { background: var(--ps4-blue); color: white; }
-        .card-ps5 { background: var(--ps5-white); color: #050505; }
-        .thumb { width: 55px; height: 75px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); }
+        .nav-grid { display: grid; grid-template-columns: 85px 1fr 85px; align-items: center; }
+        .mini-stats { font-size: 10px; opacity: 0.9; text-align: center; text-transform: uppercase; font-weight: bold; }
         
+        .search-container { position: relative; width: 95%; margin: 10px auto; }
+        .search-bar { width: 100%; padding: 12px; padding-right: 40px; border-radius: 8px; border: none; background: rgba(255,255,255,0.2); color: white; font-size: 16px; outline: none; box-sizing: border-box; }
+        .clear-search { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: white; font-size: 20px; font-weight: bold; cursor: pointer; display: none; }
+
+        .selection-bar {
+            background: #002d6a;
+            padding: 10px;
+            display: none;
+            align-items: center;
+            gap: 15px;
+            border-top: 1px solid rgba(255,255,255,0.3);
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .select-all-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+        }
+        
+        .select-all-container input {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+        }
+
+        .game-card { margin: 6px; padding: 12px; display: flex; align-items: center; gap: 15px; border-radius: 10px; background: #111; border: 1px solid rgba(255,255,255,0.1); position: relative; cursor: pointer; }
+        .card-ps4 { border-left: 5px solid var(--ps4-blue); }
+        .card-ps5 { border-left: 5px solid white; }
+        .img-container { width: 60px; height: 80px; background: #222; border-radius: 5px; overflow: hidden; flex-shrink: 0; }
+        .thumb { width: 100%; height: 100%; object-fit: cover; }
+        .loan-tag { color: var(--danger); font-size: 10px; font-weight: bold; text-transform: uppercase; margin-top: 4px; }
+
+        .checkbox-select {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: none;
+        }
+        
+        .selection-mode .checkbox-select {
+            display: block;
+        }
+        
+        .selection-mode .game-card {
+            cursor: default;
+        }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 1000; overflow-y: auto; }
+        
+        .modal-header { background: var(--ps4-blue); color: white; padding: 10px; border-bottom: 3px solid var(--accent); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1001; }
+        .title-input { background: rgba(0,0,0,0.3); border: 1px solid var(--accent); color: white; flex-grow: 1; margin: 0 10px; padding: 8px; font-size: 16px; font-weight: 900; text-transform: uppercase; text-align: center; border-radius: 5px; box-sizing: border-box; }
+        .btn-round { width: 44px; height: 44px; border-radius: 50%; border: none; color: white; font-size: 24px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+        .btn-red { background: var(--danger); }
+        .btn-green { background: var(--success); }
+        .btn-gray { background: #444; }
+
+        .photo-row { display: flex; gap: 2px; background: #000; padding: 2px; }
+        .photo-row img { width: 50%; aspect-ratio: 3/4; object-fit: cover; background: #222; cursor: pointer; }
+        
+        .info-strip { width: 100%; padding: 18px 15px; box-sizing: border-box; background: #161616; border-bottom: 1px solid #252525; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .info-strip label { color: var(--accent); font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .info-strip input, .info-strip select { background: transparent; border: none; color: white; font-size: 16px; text-align: right; outline: none; }
+        
+        .checkbox-group { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; width: 100%; margin-top: 10px; }
+        .checkbox-item { display: flex; align-items: center; gap: 5px; font-size: 12px; background: #222; padding: 5px 10px; border-radius: 15px; border: 1px solid #333; }
+
         .admin-only { display: none; }
-        .btn-header { background: none; border: 1px solid white; color: white; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
-        .btn-add { background: white !important; color: var(--ps4-blue) !important; font-size: 24px; font-weight: bold; border: none; }
+        .btn-header { background: none; border: 1px solid white; color: white; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
 
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 1000; padding: 15px; box-sizing: border-box; overflow-y: auto; }
-        input, select { width: 100%; background: #222; border: 1px solid #444; color: white; padding: 12px; margin-bottom: 10px; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+        .btn-delete-all { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--danger); border: 2px solid white; color: white; font-size: 26px; display: none; align-items: center; justify-content: center; z-index: 99; box-shadow: 0 4px 12px rgba(0,0,0,0.5); cursor: pointer; }
+
+        #auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 10000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
         
-        .price-row { display: flex; align-items: center; background: #222; border: 1px solid #444; border-radius: 6px; margin-bottom: 10px; padding-right: 15px; }
-        .price-row input { margin-bottom: 0; border: none; flex: 1; }
-        .currency { font-size: 18px; font-weight: bold; color: white; }
-
-        #viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; }
-        #viewer-img { width: 100%; height: 100%; object-fit: contain; }
-        #close-viewer { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.5); border: none; border-radius: 50%; width: 45px; height: 45px; z-index: 2100; font-size: 25px; }
+        #auth-pad {
+            background: #111;
+            padding: 20px;
+            border-radius: 20px;
+            border: 3px solid var(--ps4-blue);
+            width: 280px;
+            text-align: center;
+        }
+        
+        #auth-display {
+            background: #222;
+            color: white;
+            font-size: 32px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            letter-spacing: 10px;
+            font-family: monospace;
+        }
+        
+        .auth-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .auth-key {
+            width: 70px;
+            height: 70px;
+            border-radius: 35px;
+            border: none;
+            background: #333;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .auth-key:active {
+            background: var(--ps4-blue);
+        }
+        
+        .auth-key.special {
+            background: #555;
+            font-size: 24px;
+        }
+        
+        .unlocked { background: var(--success) !important; }
+        
+        .photo-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--ps4-blue);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 18px;
+            z-index: 2000;
+            display: none;
+            border: 3px solid white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        
+        .photo-indicator:active {
+            background: var(--success);
+        }
+        
+        .selection-count {
+            margin-left: auto;
+            font-weight: bold;
+            color: white;
+        }
     </style>
 </head>
-<body>
+<body id="main-body">
+
     <div class="header">
-        <div class="nav-grid">
-            <div style="display:flex; justify-content:center;"><button class="btn-header admin-only" id="btn-hist">🕒</button></div>
-            <div style="text-align:center;">
-                <div style="font-weight:900; font-size:16px; letter-spacing:1px;">LUDOTHÈQUE</div>
-                <div id="count-bar" class="mini-stats">CHARGEMENT...</div>
+        <div class="header-top">
+            <div class="nav-grid">
+                <div style="display:flex; gap:8px; justify-content:center;">
+                    <button class="btn-header admin-only" onclick="exportData()">💾</button>
+                    <button class="btn-header admin-only" onclick="document.getElementById('import-file').click()">📂</button>
+                </div>
+                <div>
+                    <div style="font-weight:900; font-size:12px; text-align:center;">LUDOTHEQUE DEVID v4.1</div>
+                    <div id="count-bar" class="mini-stats">...</div>
+                </div>
+                <div style="display:flex; gap:8px; justify-content: center;">
+                    <button class="btn-header" onclick="showAuthPad()" id="lock-btn">🔒</button>
+                    <button class="btn-header admin-only" onclick="startPhotoSequence()" style="background:white; color:var(--ps4-blue); font-weight:bold;">+</button>
+                </div>
             </div>
-            <div style="display:flex; gap:5px; justify-content: center; align-items:center;">
-                <button class="btn-header" id="lock-btn" onclick="askAuth()" style="border:none;">🔒</button>
-                <button class="btn-header btn-add admin-only" onclick="startSequence()">+</button>
+            <div class="search-container">
+                <input type="text" id="search" class="search-bar" placeholder="Rechercher..." oninput="handleSearch(this)">
+                <span id="clear-search" class="clear-search" onclick="clearSearch()">×</span>
             </div>
         </div>
-        <input type="text" id="search" class="search-bar" placeholder="RECHERCHER UN JEU..." oninput="render()">
+        
+        <div id="selection-bar" class="selection-bar">
+            <div class="select-all-container">
+                <input type="checkbox" id="select-all" onclick="toggleSelectAll()">
+                <label for="select-all">Tout sélectionner</label>
+            </div>
+            <div id="selection-count" class="selection-count">0 sélectionné</div>
+        </div>
     </div>
 
     <div id="game-list"></div>
-    <input type="file" id="cam" accept="image/*" capture="environment" style="display:none;">
+
+    <button id="trash-global" class="btn-delete-all admin-only" onclick="toggleSelectionMode()">🗑️</button>
 
     <div id="modal" class="modal">
-        <div style="font-weight:bold; margin-bottom:20px; text-align:center; font-size:18px;">FICHE DU JEU</div>
-        <div style="display:flex; gap:10px; margin-bottom:15px;">
-            <div id="sel-ps4" style="flex:1; padding:15px; background:var(--ps4-blue); text-align:center; border-radius:8px; font-weight:bold; border:2px solid white;" onclick="selectConsole('PS4')">PS4</div>
-            <div id="sel-ps5" style="flex:1; padding:15px; background:white; color:black; text-align:center; border-radius:8px; font-weight:bold; border:2px solid #ccc;" onclick="selectConsole('PS5')">PS5</div>
+        <div class="modal-header">
+            <button id="main-red-btn" class="btn-round" onclick="closeModal()">×</button>
+            <input type="text" id="m-title" class="title-input" placeholder="TITRE DU JEU">
+            <button id="main-save-btn" class="btn-round btn-green admin-only" onclick="saveGame()">✓</button>
         </div>
-        <input type="text" id="m-title" placeholder="NOM DU JEU">
-        <div style="display:flex; gap:10px; margin-bottom:15px;">
-            <img id="m-r" style="width:50%; aspect-ratio:3/4; object-fit:cover; border-radius:6px; border:1px solid #555;" onclick="openFullscreen(this.src)">
-            <img id="m-v" style="width:50%; aspect-ratio:3/4; object-fit:cover; border-radius:6px; border:1px solid #555;" onclick="openFullscreen(this.src)">
+
+        <div class="photo-row">
+            <img id="m-r" src="" onclick="takePhoto('r')">
+            <img id="m-v" src="" onclick="takePhoto('v')">
         </div>
-        <div class="price-row"><input type="number" id="m-price" placeholder="PRIX D'ACHAT"><span class="currency">€</span></div>
-        <input type="text" id="m-date" placeholder="DATE D'ACHAT (JJ/MM/AA)" maxlength="8">
-        <select id="m-players">
-            <option value="1 Joueur">1 Joueur</option>
-            <option value="1-2 Joueurs">1-2 Joueurs</option>
-            <option value="1-4 Joueurs">1-4 Joueurs</option>
-            <option value="1-X">1-X</option>
-        </select>
-        <input type="text" id="m-loan" placeholder="PRÊTÉ À (NOM)">
-        <button id="btn-save" class="admin-only" onclick="saveGame()" style="width:100%; padding:20px; background:#28a745; color:white; border:none; font-weight:900; border-radius:10px; font-size:16px;">VALIDER LA SAUVEGARDE</button>
-        <button onclick="closeModal()" style="width:100%; background:none; color:gray; border:none; margin-top:15px; font-weight:bold;">RETOUR</button>
+        
+        <div class="info-strip"><label>Console</label><select id="m-console"><option value="PS4">PS4</option><option value="PS5">PS5</option></select></div>
+        <div class="info-strip"><label>Prix</label><input type="tel" id="m-price" placeholder="-- €" inputmode="numeric" style="width:60%"></div>
+        
+        <div class="info-strip">
+            <label>Joueurs</label>
+            <div class="checkbox-group" id="player-options">
+                <label class="checkbox-item"><input type="checkbox" value="1 joueur"> 1 j.</label>
+                <label class="checkbox-item"><input type="checkbox" value="1-2 joueurs"> 1-2 j.</label>
+                <label class="checkbox-item"><input type="checkbox" value="1-4 joueurs"> 1-4 j.</label>
+                <label class="checkbox-item"><input type="checkbox" value="Online"> Online</label>
+            </div>
+        </div>
+
+        <div class="info-strip"><label>Acquisition</label><input type="tel" id="m-date" placeholder="JJ/MM/AAAA" maxlength="10" inputmode="numeric" oninput="formatDate(this)" style="width:60%"></div>
+        <div class="info-strip"><label>Prêté à</label><input type="text" id="m-loan" placeholder="Personne" style="width:60%"></div>
     </div>
 
-    <div id="viewer"><button id="close-viewer" onclick="closeFullscreen()">×</button><div id="pz-area" style="width:100%; height:100%;"><img id="viewer-img"></div></div>
+    <div id="photo-indicator" class="photo-indicator" onclick="continuePhotoSequence()">📸 Photo 1/2</div>
+    
+    <div id="auth-overlay">
+        <div id="auth-pad">
+            <div id="auth-display">****</div>
+            <div class="auth-row">
+                <button class="auth-key" onclick="addCode('1')">1</button>
+                <button class="auth-key" onclick="addCode('2')">2</button>
+                <button class="auth-key" onclick="addCode('3')">3</button>
+            </div>
+            <div class="auth-row">
+                <button class="auth-key" onclick="addCode('4')">4</button>
+                <button class="auth-key" onclick="addCode('5')">5</button>
+                <button class="auth-key" onclick="addCode('6')">6</button>
+            </div>
+            <div class="auth-row">
+                <button class="auth-key" onclick="addCode('7')">7</button>
+                <button class="auth-key" onclick="addCode('8')">8</button>
+                <button class="auth-key" onclick="addCode('9')">9</button>
+            </div>
+            <div class="auth-row">
+                <button class="auth-key special" onclick="clearCode()">C</button>
+                <button class="auth-key" onclick="addCode('0')">0</button>
+                <button class="auth-key special" onclick="validateCode()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="cam" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(this)">
 
     <script>
-        const CONFIG = {
-            token: "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",
-            user: "devidprinciotta",
-            repo: "ludo",
-            path: "ludo.json",
-            code: "9118"
+        // Variables globales
+        const PASSCODE = "9118";
+        let db = null;
+        let games = [];
+        let isAuthenticated = false;
+        let activeId = null;
+        let photoStep = 0;
+        let photoRecto = null;
+        let photoTarget = null;
+        let authCode = '';
+        let selectionMode = false;
+
+        // Initialisation de la base de données
+        const request = indexedDB.open("LudothequeDB", 1);
+        
+        request.onupgradeneeded = function(e) {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains("games")) {
+                db.createObjectStore("games", { keyPath: "id", autoIncrement: true });
+            }
+        };
+        
+        request.onsuccess = function(e) {
+            db = e.target.result;
+            loadGames();
+        };
+        
+        request.onerror = function(e) {
+            console.log("Erreur DB:", e.target.error);
         };
 
-        let games = [], selectedConsole = 'PS4', activeId = null, pz = null, isAuthenticated = false;
+        // Charger les jeux
+        function loadGames() {
+            if (!db) return;
+            const tx = db.transaction("games", "readonly");
+            const store = tx.objectStore("games");
+            const req = store.getAll();
+            req.onsuccess = function() {
+                games = req.result;
+                displayGames();
+            };
+        }
 
-        document.getElementById('m-date').addEventListener('input', function(e) {
-            let v = e.target.value.replace(/\D/g,'').slice(0,6);
-            if (v.length >= 5) v = v.replace(/(\d{2})(\d{2})(\d{2})/, "$1/$2/$3");
-            else if (v.length >= 3) v = v.replace(/(\d{2})(\d{2})/, "$1/$2/");
-            e.target.value = v;
-        });
-
-        async function compressImg(base64) {
-            return new Promise(resolve => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const maxW = 800;
-                    const scale = maxW / img.width;
-                    canvas.width = maxW;
-                    canvas.height = img.height * scale;
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.7));
-                };
-                img.src = base64;
+        // Afficher les jeux
+        function displayGames() {
+            const list = document.getElementById('game-list');
+            list.innerHTML = '';
+            
+            const searchText = document.getElementById('search').value.toLowerCase();
+            let filtered = [...games].sort((a,b) => (a.title || '').localeCompare(b.title || ''));
+            
+            if (searchText) {
+                filtered = filtered.filter(g => (g.title || '').toLowerCase().includes(searchText));
+            }
+            
+            document.getElementById('count-bar').innerText = games.length + ' JEUX';
+            
+            filtered.forEach(game => {
+                const card = document.createElement('div');
+                card.className = `game-card ${game.console === 'PS5' ? 'card-ps5' : 'card-ps4'}`;
+                card.dataset.id = game.id;
+                
+                if (!selectionMode) {
+                    card.onclick = () => openGame(game.id);
+                }
+                
+                const players = Array.isArray(game.players) ? game.players.join(', ') : (game.players || '1 joueur');
+                const loanHtml = game.loan ? `<div class="loan-tag">PRÊTÉ : ${game.loan}</div>` : '';
+                
+                card.innerHTML = `
+                    <input type="checkbox" class="checkbox-select" data-id="${game.id}" onchange="updateSelectionCount()">
+                    <div class="img-container"><img src="${game.r || ''}" class="thumb"></div>
+                    <div style="flex-grow:1;">
+                        <div style="font-weight:900;">${game.title || 'Sans titre'}</div>
+                        <div style="font-size:11px; opacity:0.6;">${players}</div>
+                        ${loanHtml}
+                    </div>
+                `;
+                list.appendChild(card);
             });
-        }
-
-        function askAuth() {
-            const p = prompt("CODE ADMINISTRATEUR :");
-            if (p && p.trim() === CONFIG.code) { isAuthenticated = true; updateUI(); }
-        }
-
-        function updateUI() {
-            document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAuthenticated ? 'flex' : 'none');
-            document.getElementById('lock-btn').innerText = isAuthenticated ? "🔓" : "🔒";
-        }
-
-        async function loadData() {
-            const res = await fetch(`https://api.github.com/repos/${CONFIG.user}/${CONFIG.repo}/contents/${CONFIG.path}?t=${Date.now()}`, {
-                headers: { "Authorization": `token ${CONFIG.token}` }
-            });
-            if(res.ok) {
-                const data = await res.json();
-                games = JSON.parse(decodeURIComponent(escape(atob(data.content))));
-                render();
+            
+            if (selectionMode) {
+                document.body.classList.add('selection-mode');
+            } else {
+                document.body.classList.remove('selection-mode');
             }
         }
 
-        function render() {
-            const list = document.getElementById('game-list');
-            list.innerHTML = "";
-            let displayList = [...games].sort((a,b) => a.title.localeCompare(b.title));
-            document.getElementById('count-bar').innerText = `${games.length} JEUX DISPONIBLES`;
-            displayList.forEach(g => {
-                const el = document.createElement('div');
-                el.className = `game-card ${g.console === 'PS5' ? 'card-ps5' : 'card-ps4'}`;
-                el.onclick = () => openGame(g.id);
-                el.innerHTML = `<img src="${g.r}" class="thumb"><div style="flex:1"><div style="font-weight:900;">${g.title}</div><div style="font-size:11px;opacity:0.8;">${g.date || ''}</div></div>`;
-                list.appendChild(el);
+        // Mode sélection
+        function toggleSelectionMode() {
+            selectionMode = !selectionMode;
+            document.getElementById('selection-bar').style.display = selectionMode ? 'flex' : 'none';
+            document.getElementById('select-all').checked = false;
+            displayGames();
+        }
+
+        function updateSelectionCount() {
+            const checkboxes = document.querySelectorAll('.checkbox-select:checked');
+            const count = checkboxes.length;
+            document.getElementById('selection-count').innerText = count + ' sélectionné' + (count > 1 ? 's' : '');
+        }
+
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('select-all').checked;
+            document.querySelectorAll('.checkbox-select').forEach(cb => {
+                cb.checked = selectAll;
+            });
+            updateSelectionCount();
+        }
+
+        function deleteSelected() {
+            const checkboxes = document.querySelectorAll('.checkbox-select:checked');
+            const count = checkboxes.length;
+            
+            if (count === 0) {
+                alert("Aucun jeu sélectionné");
+                return;
+            }
+            
+            // Confirmation 1
+            if (!confirm(count + " jeu(x) sélectionné(s). Voulez-vous les supprimer ?")) return;
+            
+            // Confirmation 2
+            if (!confirm("Êtes-vous sûr de vouloir supprimer cette sélection ?")) return;
+            
+            // Confirmation 3
+            if (!confirm("Dernière chance : cette action est irréversible. Confirmer la suppression ?")) return;
+            
+            // Suppression
+            const ids = [];
+            checkboxes.forEach(cb => ids.push(parseInt(cb.dataset.id)));
+            
+            const tx = db.transaction("games", "readwrite");
+            const store = tx.objectStore("games");
+            
+            ids.forEach(id => {
+                store.delete(id);
+            });
+            
+            tx.oncomplete = function() {
+                alert(count + " jeu(x) supprimé(s)");
+                toggleSelectionMode(); // Quitte le mode sélection
+                loadGames();
+            };
+        }
+
+        // Recherche
+        function handleSearch(input) {
+            document.getElementById('clear-search').style.display = input.value ? 'block' : 'none';
+            displayGames();
+        }
+
+        function clearSearch() {
+            document.getElementById('search').value = '';
+            document.getElementById('clear-search').style.display = 'none';
+            displayGames();
+        }
+
+        // Formatage date
+        function formatDate(input) {
+            let v = input.value.replace(/\D/g, '').slice(0, 8);
+            if (v.length >= 2) v = v.slice(0,2) + '/' + v.slice(2);
+            if (v.length >= 5) v = v.slice(0,5) + '/' + v.slice(5);
+            input.value = v;
+        }
+
+        // Authentification
+        function showAuthPad() {
+            document.getElementById('auth-overlay').style.display = 'flex';
+            authCode = '';
+            document.getElementById('auth-display').innerText = '****';
+        }
+        
+        function hideAuthPad() {
+            document.getElementById('auth-overlay').style.display = 'none';
+        }
+        
+        function addCode(digit) {
+            if (authCode.length < 4) {
+                authCode += digit;
+                let display = '';
+                for (let i = 0; i < 4; i++) display += i < authCode.length ? '*' : '*';
+                document.getElementById('auth-display').innerText = display;
+            }
+            if (authCode.length === 4) validateCode();
+        }
+        
+        function clearCode() {
+            authCode = '';
+            document.getElementById('auth-display').innerText = '****';
+        }
+        
+        function validateCode() {
+            if (authCode === PASSCODE) {
+                isAuthenticated = true;
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    el.style.display = el.tagName === 'BUTTON' ? 'flex' : 'block';
+                });
+                document.getElementById('lock-btn').classList.add('unlocked');
+                document.getElementById('lock-btn').textContent = '🔓';
+                hideAuthPad();
+            } else {
+                alert('Code incorrect');
+                clearCode();
+            }
+        }
+
+        // Compression d'image
+        function compressImage(file) {
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (width > 800) {
+                            height = Math.round(height * 800 / width);
+                            width = 800;
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.7));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
             });
         }
 
-        let step = 1, rTemp = null;
-        function startSequence() { step = 1; document.getElementById('cam').click(); }
-        document.getElementById('cam').onchange = e => {
-            const fr = new FileReader();
-            fr.onload = async () => {
-                const comp = await compressImg(fr.result);
-                if(step === 1) { rTemp = comp; step = 2; setTimeout(() => document.getElementById('cam').click(), 600); }
-                else { showForm(rTemp, comp); }
-            };
-            if(e.target.files[0]) fr.readAsDataURL(e.target.files[0]);
+        // Flash
+        function triggerFlash() {
+            const body = document.getElementById('main-body');
+            body.classList.remove('flash-active');
+            void body.offsetWidth;
+            body.classList.add('flash-active');
+        }
+
+        // Indicateur photo
+        function showPhotoIndicator(text) {
+            document.getElementById('photo-indicator').textContent = text;
+            document.getElementById('photo-indicator').style.display = 'block';
+        }
+
+        function hidePhotoIndicator() {
+            document.getElementById('photo-indicator').style.display = 'none';
+        }
+
+        // Continuer la séquence photo
+        function continuePhotoSequence() {
+            if (photoStep === 2) {
+                document.getElementById('cam').value = '';
+                document.getElementById('cam').click();
+            }
+        }
+
+        // Prendre une photo individuelle
+        function takePhoto(type) {
+            if (!isAuthenticated) {
+                showAuthPad();
+                return;
+            }
+            photoTarget = type;
+            document.getElementById('cam').value = '';
+            document.getElementById('cam').click();
+        }
+
+        // Séquence photo
+        function startPhotoSequence() {
+            if (!isAuthenticated) {
+                showAuthPad();
+                return;
+            }
+            photoStep = 1;
+            photoRecto = null;
+            photoTarget = null;
+            showPhotoIndicator("📸 Photo 1/2 - Cliquez ici pour la 2ème");
+            document.getElementById('cam').value = '';
+            document.getElementById('cam').click();
+        }
+
+        // Gestion des photos
+        document.getElementById('cam').onchange = async function(e) {
+            const file = e.target.files[0];
+            if (!file) {
+                photoStep = 0;
+                hidePhotoIndicator();
+                return;
+            }
+            
+            triggerFlash();
+            const compressed = await compressImage(file);
+            
+            if (photoStep === 1) {
+                photoRecto = compressed;
+                photoStep = 2;
+                showPhotoIndicator("📸 Photo 2/2 - Cliquez ici");
+                
+                setTimeout(() => {
+                    if (photoStep === 2) {
+                        document.getElementById('cam').value = '';
+                        document.getElementById('cam').click();
+                    }
+                }, 500);
+            } 
+            else if (photoStep === 2) {
+                hidePhotoIndicator();
+                
+                activeId = null;
+                document.getElementById('m-title').value = '';
+                document.getElementById('m-r').src = photoRecto;
+                document.getElementById('m-v').src = compressed;
+                document.getElementById('m-price').value = '';
+                document.getElementById('m-date').value = '';
+                document.getElementById('m-loan').value = '';
+                document.getElementById('m-console').value = 'PS4';
+                document.querySelectorAll('#player-options input').forEach(cb => cb.checked = false);
+                document.getElementById('modal').style.display = 'block';
+                
+                photoStep = 0;
+                photoRecto = null;
+            }
+            else if (photoTarget) {
+                if (photoTarget === 'r') {
+                    document.getElementById('m-r').src = compressed;
+                } else {
+                    document.getElementById('m-v').src = compressed;
+                }
+                photoTarget = null;
+            }
         };
 
-        function showForm(r, v) {
-            activeId = null; document.getElementById('m-r').src = r; document.getElementById('m-v').src = v;
-            document.getElementById('m-title').value = ""; document.getElementById('modal').style.display = 'block';
-        }
-
-        async function saveGame() {
-            const btn = document.getElementById('btn-save');
-            btn.innerText = "SYNCHRONISATION GITHUB...";
-            btn.disabled = true;
-
-            const meta = await fetch(`https://api.github.com/repos/${CONFIG.user}/${CONFIG.repo}/contents/${CONFIG.path}?t=${Date.now()}`, {
-                headers: { "Authorization": `token ${CONFIG.token}` }
-            });
-            const metaData = await meta.json();
-            const latestSha = metaData.sha;
-
-            const g = { id: activeId || Date.now(), title: document.getElementById('m-title').value, console: selectedConsole, players: document.getElementById('m-players').value, loan: document.getElementById('m-loan').value, price: document.getElementById('m-price').value, date: document.getElementById('m-date').value, r: document.getElementById('m-r').src, v: document.getElementById('m-v').src };
-            
-            let newGames = [...games];
-            if(activeId) newGames[newGames.findIndex(x => x.id === activeId)] = g;
-            else newGames.push(g);
-
-            const res = await fetch(`https://api.github.com/repos/${CONFIG.user}/${CONFIG.repo}/contents/${CONFIG.path}`, {
-                method: "PUT",
-                headers: { "Authorization": `token ${CONFIG.token}` },
-                body: JSON.stringify({ message: "Update", content: btoa(unescape(encodeURIComponent(JSON.stringify(newGames)))), sha: latestSha })
-            });
-
-            if(res.ok) location.reload();
-            else { alert("Erreur Serveur."); btn.disabled = false; btn.innerText = "VALIDER LA SAUVEGARDE"; }
-        }
-
+        // Ouvrir un jeu
         function openGame(id) {
-            const g = games.find(x => x.id === id);
-            activeId = id; selectConsole(g.console || 'PS4');
-            document.getElementById('m-title').value = g.title;
-            document.getElementById('m-r').src = g.r; document.getElementById('m-v').src = g.v;
-            document.getElementById('m-price').value = g.price || ""; document.getElementById('m-date').value = g.date || "";
-            document.getElementById('m-players').value = g.players || "1 Joueur";
+            const game = games.find(g => g.id === id);
+            if (!game) return;
+            
+            activeId = game.id;
+            document.getElementById('m-title').value = game.title || '';
+            document.getElementById('m-r').src = game.r || '';
+            document.getElementById('m-v').src = game.v || '';
+            document.getElementById('m-price').value = game.price || '';
+            document.getElementById('m-date').value = game.date || '';
+            document.getElementById('m-loan').value = game.loan || '';
+            document.getElementById('m-console').value = game.console || 'PS4';
+            
+            const players = Array.isArray(game.players) ? game.players : (game.players ? [game.players] : []);
+            document.querySelectorAll('#player-options input').forEach(cb => {
+                cb.checked = players.includes(cb.value);
+            });
+            
             document.getElementById('modal').style.display = 'block';
         }
 
-        function selectConsole(c) { selectedConsole = c; document.getElementById('sel-ps4').style.opacity = c==='PS4'?'1':'0.3'; document.getElementById('sel-ps5').style.opacity = c==='PS5'?'1':'0.3'; }
-        function openFullscreen(src) { document.getElementById('viewer-img').src = src; document.getElementById('viewer').style.display = 'block'; setTimeout(() => { pz = new PinchZoom(document.getElementById('pz-area')); }, 200); }
-        function closeFullscreen() { document.getElementById('viewer').style.display = 'none'; if(pz) pz.destroy(); }
-        function closeModal() { document.getElementById('modal').style.display = 'none'; }
-        function setFilter(f) { currentFilter = f; render(); }
-        window.onload = loadData;
+        // Sauvegarder
+        function saveGame() {
+            if (!db) {
+                alert("Base de données non disponible");
+                return;
+            }
+            
+            const title = document.getElementById('m-title').value;
+            if (!title) {
+                alert("Titre obligatoire");
+                return;
+            }
+            
+            const players = [];
+            document.querySelectorAll('#player-options input:checked').forEach(cb => players.push(cb.value));
+            if (players.length === 0) players.push("1 joueur");
+            
+            const game = {
+                title: title,
+                console: document.getElementById('m-console').value,
+                price: document.getElementById('m-price').value,
+                date: document.getElementById('m-date').value,
+                loan: document.getElementById('m-loan').value,
+                players: players,
+                r: document.getElementById('m-r').src || '',
+                v: document.getElementById('m-v').src || ''
+            };
+            
+            const tx = db.transaction("games", "readwrite");
+            const store = tx.objectStore("games");
+            
+            if (activeId) {
+                game.id = activeId;
+                store.put(game);
+            } else {
+                store.add(game);
+            }
+            
+            tx.oncomplete = function() {
+                closeModal();
+                loadGames();
+            };
+        }
+
+        // Fermer le modal
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+            activeId = null;
+            photoStep = 0;
+            photoRecto = null;
+            photoTarget = null;
+            hidePhotoIndicator();
+        }
+
+        // Exporter
+        function exportData() {
+            const now = new Date();
+            const date = now.toLocaleDateString('fr-FR').replace(/\//g, '-');
+            const time = now.getHours() + 'h' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+            const fileName = `ludotheque_${date}_${time}.json`;
+            
+            const blob = new Blob([JSON.stringify(games, null, 2)], {type: 'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            a.click();
+        }
+
+        // Importer
+        function importData(input) {
+            if (!db) {
+                alert("Base de données non disponible");
+                return;
+            }
+            
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data)) throw new Error("Format incorrect");
+                    
+                    const tx = db.transaction("games", "readwrite");
+                    const store = tx.objectStore("games");
+                    
+                    let count = 0;
+                    data.forEach(item => {
+                        const cleanItem = {
+                            title: item.title || "Sans titre",
+                            console: item.console || "PS4",
+                            price: item.price || "",
+                            date: item.date || "",
+                            loan: item.loan || "",
+                            players: Array.isArray(item.players) ? item.players : ["1 joueur"],
+                            r: item.r || "",
+                            v: item.v || ""
+                        };
+                        store.add(cleanItem);
+                        count++;
+                    });
+                    
+                    tx.oncomplete = function() {
+                        alert(count + " jeux importés");
+                        loadGames();
+                    };
+                } catch (error) {
+                    alert("Erreur: " + error.message);
+                }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
+        // Modifier le bouton rouge global pour appeler deleteSelected
+        document.getElementById('trash-global').onclick = function() {
+            if (selectionMode) {
+                deleteSelected();
+            } else {
+                toggleSelectionMode();
+            }
+        };
     </script>
 </body>
 </html>
