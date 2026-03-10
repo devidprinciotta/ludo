@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v11.3 - Retour arrière + Suppression fix</title>
+    <title>Ma Ludothèque By Devid - final cut (on line)</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -676,7 +676,8 @@
                     <button class="btn-header admin-only" onclick="toggleSelectionMode()" style="display: none;">🗑️</button>
                 </div>
                 <div>
-                    <div style="font-weight:900; font-size:14px; text-align:center; text-shadow:0 0 10px var(--accent); letter-spacing:2px;">LUDOTHEQUE DEVID</div>
+                    <div style="font-weight:900; font-size:14px; text-align:center; text-shadow:0 0 10px var(--accent); letter-spacing:2px;">MA LUDOTHEQUE BY DEVID</div>
+                    <div style="font-size:8px; text-align:center; opacity:0.7; margin-top:-2px;">final cut (on line)</div>
                     <div id="count-bar" class="mini-stats">...</div>
                 </div>
                 <div style="display:flex; gap:8px; justify-content: center;">
@@ -818,12 +819,9 @@
                 closeModal();
                 event.preventDefault();
             } else {
-                // Reste sur la page, ne quitte pas
                 history.pushState(null, '', window.location.href);
             }
         });
-
-        // Initialiser l'historique
         history.pushState(null, '', window.location.href);
 
         // ========== CHARGEMENT DES JEUX ==========
