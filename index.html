@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v6.1 - Drive Final</title>
+    <title>Ludotheque DEVID v8.0 - Notifications Admin</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -15,6 +15,7 @@
             --accent: #00d4ff;
             --danger: #ff4444;
             --success: #28a745;
+            --warning: #ff9900;
             --card-bg: rgba(20, 25, 35, 0.9);
             --neon-blue: #00aaff;
             --neon-shadow: 0 0 10px rgba(0, 170, 255, 0.5);
@@ -244,6 +245,19 @@
             display: inline-block;
             border: 1px solid rgba(255,68,68,0.3);
         }
+        
+        .reserve-tag { 
+            color: var(--warning); 
+            font-size: 10px; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            margin-top: 4px;
+            background: rgba(255,153,0,0.2);
+            padding: 2px 6px;
+            border-radius: 10px;
+            display: inline-block;
+            border: 1px solid rgba(255,153,0,0.3);
+        }
 
         .checkbox-select {
             width: 26px;
@@ -328,6 +342,7 @@
         
         .btn-red { background: linear-gradient(135deg, var(--danger) 0%, #aa2222 100%); }
         .btn-green { background: linear-gradient(135deg, var(--success) 0%, #1e7a34 100%); }
+        .btn-orange { background: linear-gradient(135deg, var(--warning) 0%, #cc7a00 100%); }
         .btn-gray { background: linear-gradient(135deg, #444 0%, #222 100%); }
 
         .photo-row { 
@@ -575,7 +590,6 @@
             background: var(--ps4-blue);
         }
         
-        /* Message de succès/erreur */
         .drive-message {
             position: fixed;
             top: 50%;
@@ -602,6 +616,55 @@
         .drive-message.error {
             border-color: var(--danger);
             box-shadow: 0 0 30px var(--danger);
+        }
+        
+        .reserve-btn {
+            background: var(--warning);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .reserve-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* Notifications admin */
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10002;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 300px;
+        }
+        
+        .notification {
+            background: linear-gradient(135deg, var(--warning) 0%, #cc7a00 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5), 0 0 15px var(--warning);
+            border-left: 5px solid white;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
+            font-weight: bold;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
         }
     </style>
 </head>
@@ -669,6 +732,15 @@
 
         <div class="info-strip"><label>📅 Acquisition</label><input type="tel" id="m-date" placeholder="JJ/MM/AAAA" maxlength="10" inputmode="numeric" oninput="formatDate(this)" style="width:60%"></div>
         <div class="info-strip"><label>📤 Prêté à</label><input type="text" id="m-loan" placeholder="Personne" style="width:60%"></div>
+        
+        <div class="info-strip">
+            <label>📅 Réservation</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span id="m-reserve-display" style="color: var(--warning);"></span>
+                <button class="reserve-btn" onclick="reserveGame()">📅 Réserver</button>
+                <button class="reserve-btn" onclick="cancelReservation()" style="background: #666;">✖ Annuler</button>
+            </div>
+        </div>
     </div>
 
     <div id="photo-indicator" class="photo-indicator" onclick="continuePhotoSequence()">📸 Photo 1/2</div>
@@ -700,11 +772,34 @@
     </div>
 
     <div id="drive-message" class="drive-message"></div>
+    
+    <!-- Conteneur pour les notifications admin -->
+    <div id="notification-container" class="notification-container"></div>
 
     <input type="file" id="cam" accept="image/*" capture="environment" style="display:none;">
     <input type="file" id="import-file" accept=".json" style="display:none;">
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
     <script>
+        // ========== CONFIGURATION FIREBASE ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyBIeiPklebeg4pYQQmZWX7G_vBLF-93aNs",
+            authDomain: "ludotheque-reservation.firebaseapp.com",
+            projectId: "ludotheque-reservation",
+            storageBucket: "ludotheque-reservation.firebasestorage.app",
+            messagingSenderId: "930164429083",
+            appId: "1:930164429083:web:1e6aa69ad7ee59c60003be"
+        };
+
+        // Initialiser Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const reservationsRef = database.ref('reservations');
+        const adminRef = database.ref('admin');
+
         // ========== CONFIGURATION GOOGLE DRIVE ==========
         const CLIENT_ID = '146086087886-mraspoquqjd6n2ntug7sl6t0brsed5fj.apps.googleusercontent.com';
         const API_KEY = 'AIzaSyC1M_T9_Pf9kxnbulWhtBy4DzXIwzsTLZ0';
@@ -727,6 +822,9 @@
         let photoTarget = null;
         let authCode = '';
         let selectionMode = false;
+        let reservations = {};
+        let lastAdminLogin = null;
+        let notificationsShown = false;
 
         // ========== INITIALISATION BASE DE DONNÉES ==========
         const request = indexedDB.open("LudothequeDB", 1);
@@ -747,18 +845,88 @@
             console.log("Erreur DB:", e.target.error);
         };
 
-        // ========== FONCTIONS EXISTANTES ==========
-        function loadGames() {
-            if (!db) return;
-            const tx = db.transaction("games", "readonly");
-            const store = tx.objectStore("games");
-            const req = store.getAll();
-            req.onsuccess = function() {
-                games = req.result;
-                displayGames();
-            };
+        // ========== CHARGEMENT DES RÉSERVATIONS ==========
+        reservationsRef.on('value', (snapshot) => {
+            reservations = snapshot.val() || {};
+            displayGames();
+        });
+
+        // ========== NOTIFICATIONS ADMIN ==========
+        function showNotification(message) {
+            const container = document.getElementById('notification-container');
+            const notif = document.createElement('div');
+            notif.className = 'notification';
+            notif.textContent = message;
+            container.appendChild(notif);
+            
+            setTimeout(() => {
+                notif.remove();
+            }, 3000);
         }
 
+        async function checkNewReservations() {
+            if (!isAuthenticated) return;
+            
+            // Récupérer la date de dernière connexion
+            const adminSnapshot = await adminRef.child('lastLogin').once('value');
+            const lastLogin = adminSnapshot.val() || 0;
+            
+            // Récupérer toutes les réservations
+            const reservationsSnapshot = await reservationsRef.once('value');
+            const allReservations = reservationsSnapshot.val() || {};
+            
+            // Filtrer les réservations plus récentes que la dernière connexion
+            const newReservations = [];
+            for (const [gameId, res] of Object.entries(allReservations)) {
+                const resDate = new Date(res.date).getTime();
+                if (resDate > lastLogin) {
+                    const game = games.find(g => g.id == gameId);
+                    if (game) {
+                        newReservations.push({
+                            ...res,
+                            gameTitle: game.title
+                        });
+                    }
+                }
+            }
+            
+            // Afficher les notifications une par une
+            if (newReservations.length > 0 && !notificationsShown) {
+                notificationsShown = true;
+                for (const res of newReservations) {
+                    showNotification(`📅 ${res.reservePar} a réservé "${res.gameTitle}"`);
+                    // Petit délai entre chaque notification
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+        }
+
+        // ========== FONCTIONS DE RÉSERVATION ==========
+        function reserveGame() {
+            if (!activeId) return;
+            
+            const name = prompt("Entrez votre prénom pour réserver ce jeu :");
+            if (!name || name.trim() === '') return;
+            
+            const reservation = {
+                reservePar: name.trim(),
+                date: new Date().toISOString()
+            };
+            
+            reservationsRef.child(activeId).set(reservation);
+            document.getElementById('m-reserve-display').textContent = `Réservé par ${name}`;
+        }
+        
+        function cancelReservation() {
+            if (!activeId) return;
+            
+            if (confirm("Annuler la réservation pour ce jeu ?")) {
+                reservationsRef.child(activeId).remove();
+                document.getElementById('m-reserve-display').textContent = '';
+            }
+        }
+
+        // ========== FONCTIONS EXISTANTES MODIFIÉES ==========
         function displayGames() {
             const list = document.getElementById('game-list');
             list.innerHTML = '';
@@ -782,7 +950,13 @@
                 }
                 
                 const players = Array.isArray(game.players) ? game.players.join(', ') : (game.players || '1 joueur');
-                const loanHtml = game.loan ? `<div class="loan-tag">📤 PRÊTÉ : ${game.loan}</div>` : '';
+                
+                let statusHtml = '';
+                if (game.loan) {
+                    statusHtml = `<div class="loan-tag">📤 PRÊTÉ : ${game.loan}</div>`;
+                } else if (reservations[game.id]) {
+                    statusHtml = `<div class="reserve-tag">📅 RÉSERVÉ : ${reservations[game.id].reservePar}</div>`;
+                }
                 
                 card.innerHTML = `
                     <input type="checkbox" class="checkbox-select" data-id="${game.id}" onchange="updateSelectionCount()">
@@ -790,7 +964,7 @@
                     <div style="flex-grow:1;">
                         <div style="font-weight:900; font-size:16px;">${game.title || 'Sans titre'}</div>
                         <div style="font-size:12px; opacity:0.7;">${players}</div>
-                        ${loanHtml}
+                        ${statusHtml}
                     </div>
                 `;
                 list.appendChild(card);
@@ -803,6 +977,77 @@
             }
         }
 
+        function openGame(id) {
+            const game = games.find(g => g.id === id);
+            if (!game) return;
+            
+            activeId = game.id;
+            document.getElementById('m-title').value = game.title || '';
+            document.getElementById('m-r').src = game.r || '';
+            document.getElementById('m-v').src = game.v || '';
+            document.getElementById('m-price').value = game.price || '';
+            document.getElementById('m-date').value = game.date || '';
+            document.getElementById('m-loan').value = game.loan || '';
+            document.getElementById('m-console').value = game.console || 'PS4';
+            
+            if (reservations[game.id]) {
+                document.getElementById('m-reserve-display').textContent = `Réservé par ${reservations[game.id].reservePar}`;
+            } else {
+                document.getElementById('m-reserve-display').textContent = '';
+            }
+            
+            const players = Array.isArray(game.players) ? game.players : (game.players ? [game.players] : []);
+            document.querySelectorAll('#player-options input').forEach(cb => {
+                cb.checked = players.includes(cb.value);
+            });
+            
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        function saveGame() {
+            if (!db) {
+                alert("Base de données non disponible");
+                return;
+            }
+            
+            const title = document.getElementById('m-title').value;
+            if (!title) {
+                alert("Titre obligatoire");
+                return;
+            }
+            
+            const players = [];
+            document.querySelectorAll('#player-options input:checked').forEach(cb => players.push(cb.value));
+            if (players.length === 0) players.push("1 joueur");
+            
+            const game = {
+                title: title,
+                console: document.getElementById('m-console').value,
+                price: document.getElementById('m-price').value,
+                date: document.getElementById('m-date').value,
+                loan: document.getElementById('m-loan').value,
+                players: players,
+                r: document.getElementById('m-r').src || '',
+                v: document.getElementById('m-v').src || ''
+            };
+            
+            const tx = db.transaction("games", "readwrite");
+            const store = tx.objectStore("games");
+            
+            if (activeId) {
+                game.id = activeId;
+                store.put(game);
+            } else {
+                store.add(game);
+            }
+            
+            tx.oncomplete = function() {
+                closeModal();
+                loadGames();
+            };
+        }
+
+        // ========== FONCTIONS EXISTANTES (inchangées) ==========
         function toggleSelectionMode() {
             selectionMode = !selectionMode;
             document.getElementById('selection-bar').style.display = selectionMode ? 'flex' : 'none';
@@ -897,7 +1142,7 @@
             document.getElementById('auth-display').innerText = '****';
         }
         
-        function validateCode() {
+        async function validateCode() {
             if (authCode === PASSCODE) {
                 isAuthenticated = true;
                 document.querySelectorAll('.admin-only').forEach(el => {
@@ -906,8 +1151,16 @@
                 document.getElementById('lock-btn').classList.add('unlocked');
                 document.getElementById('lock-btn').textContent = '🔓';
                 hideAuthPad();
+                
+                // Mettre à jour la date de dernière connexion admin
+                const now = Date.now();
+                await adminRef.child('lastLogin').set(now);
+                
+                // Vérifier les nouvelles réservations
+                notificationsShown = false;
+                checkNewReservations();
             } else {
-                alert('Code incorrect');
+                alert("Code incorrect. Accès refusé.");
                 clearCode();
             }
         }
@@ -1034,70 +1287,6 @@
             }
         };
 
-        function openGame(id) {
-            const game = games.find(g => g.id === id);
-            if (!game) return;
-            
-            activeId = game.id;
-            document.getElementById('m-title').value = game.title || '';
-            document.getElementById('m-r').src = game.r || '';
-            document.getElementById('m-v').src = game.v || '';
-            document.getElementById('m-price').value = game.price || '';
-            document.getElementById('m-date').value = game.date || '';
-            document.getElementById('m-loan').value = game.loan || '';
-            document.getElementById('m-console').value = game.console || 'PS4';
-            
-            const players = Array.isArray(game.players) ? game.players : (game.players ? [game.players] : []);
-            document.querySelectorAll('#player-options input').forEach(cb => {
-                cb.checked = players.includes(cb.value);
-            });
-            
-            document.getElementById('modal').style.display = 'block';
-        }
-
-        function saveGame() {
-            if (!db) {
-                alert("Base de données non disponible");
-                return;
-            }
-            
-            const title = document.getElementById('m-title').value;
-            if (!title) {
-                alert("Titre obligatoire");
-                return;
-            }
-            
-            const players = [];
-            document.querySelectorAll('#player-options input:checked').forEach(cb => players.push(cb.value));
-            if (players.length === 0) players.push("1 joueur");
-            
-            const game = {
-                title: title,
-                console: document.getElementById('m-console').value,
-                price: document.getElementById('m-price').value,
-                date: document.getElementById('m-date').value,
-                loan: document.getElementById('m-loan').value,
-                players: players,
-                r: document.getElementById('m-r').src || '',
-                v: document.getElementById('m-v').src || ''
-            };
-            
-            const tx = db.transaction("games", "readwrite");
-            const store = tx.objectStore("games");
-            
-            if (activeId) {
-                game.id = activeId;
-                store.put(game);
-            } else {
-                store.add(game);
-            }
-            
-            tx.oncomplete = function() {
-                closeModal();
-                loadGames();
-            };
-        }
-
         function closeModal() {
             document.getElementById('modal').style.display = 'none';
             activeId = null;
@@ -1116,7 +1305,6 @@
         };
 
         // ========== FONCTIONS GOOGLE DRIVE ==========
-
         function showMessage(text, isSuccess = true) {
             const msg = document.getElementById('drive-message');
             msg.textContent = text;
@@ -1150,7 +1338,6 @@
                 accessToken = token;
                 window.location.hash = '';
                 
-                // Restaurer le mode admin
                 isAuthenticated = true;
                 document.querySelectorAll('.admin-only').forEach(el => {
                     el.style.display = el.tagName === 'BUTTON' ? 'flex' : 'block';
@@ -1216,7 +1403,6 @@
 
         async function performSave() {
             try {
-                // Récupérer tous les fichiers existants
                 const files = [];
                 for (const filename of BACKUP_FILES) {
                     const file = await findFile(filename);
@@ -1225,10 +1411,8 @@
                     }
                 }
                 
-                // Déterminer le fichier cible
                 let targetFile = null;
                 if (files.length < BACKUP_FILES.length) {
-                    // Créer le fichier manquant
                     const existingNames = files.map(f => f.name);
                     for (const filename of BACKUP_FILES) {
                         if (!existingNames.includes(filename)) {
@@ -1237,7 +1421,6 @@
                         }
                     }
                 } else {
-                    // Prendre le plus ancien
                     targetFile = files.sort((a, b) => 
                         new Date(a.modifiedTime) - new Date(b.modifiedTime)
                     )[0];
@@ -1261,7 +1444,7 @@
 
         async function saveToDrive() {
             if (!isAuthenticated) {
-                alert("Vous devez d'abord vous authentifier avec le code 9118");
+                alert("Vous devez d'abord vous identifier (cadenas)");
                 return;
             }
             
@@ -1275,7 +1458,7 @@
 
         async function restoreFromDrive() {
             if (!isAuthenticated) {
-                alert("Vous devez d'abord vous authentifier avec le code 9118");
+                alert("Vous devez d'abord vous identifier (cadenas)");
                 return;
             }
             
@@ -1354,7 +1537,6 @@
             }
         }
 
-        // Vérifier le retour Google au chargement
         window.addEventListener('load', function() {
             if (getAccessTokenFromUrl()) {
                 if (pendingSave) {
@@ -1366,7 +1548,6 @@
             }
         });
 
-        // Remplacer les fonctions d'export/import
         function exportData() {
             saveToDrive();
         }
