@@ -865,20 +865,33 @@
             
             if (reservation) {
                 reserveDisplay.textContent = `Réservé par ${reservation.reservePar}`;
-                // Si c'est l'utilisateur actuel qui a réservé
-                if (currentUserName && reservation.reservePar === currentUserName) {
-                    reserveBtn.style.display = 'none';
+                
+                if (isAuthenticated) {
+                    // Admin : voit les deux boutons
+                    reserveBtn.style.display = 'inline-block';
                     cancelBtn.style.display = 'inline-block';
                 } else {
-                    // Si c'est quelqu'un d'autre, on cache les deux boutons
-                    reserveBtn.style.display = 'none';
-                    cancelBtn.style.display = 'none';
+                    // Utilisateur normal
+                    if (currentUserName && reservation.reservePar === currentUserName) {
+                        reserveBtn.style.display = 'none';
+                        cancelBtn.style.display = 'inline-block';
+                    } else {
+                        reserveBtn.style.display = 'none';
+                        cancelBtn.style.display = 'none';
+                    }
                 }
             } else {
                 reserveDisplay.textContent = '';
-                // Pas de réservation → tout le monde peut réserver
-                reserveBtn.style.display = 'inline-block';
-                cancelBtn.style.display = 'none';
+                
+                if (isAuthenticated) {
+                    // Admin : voit le bouton réserver
+                    reserveBtn.style.display = 'inline-block';
+                    cancelBtn.style.display = 'none';
+                } else {
+                    // Utilisateur normal
+                    reserveBtn.style.display = 'inline-block';
+                    cancelBtn.style.display = 'none';
+                }
             }
         }
 
@@ -1019,6 +1032,11 @@
                 document.getElementById('lock-btn').textContent = '🔓';
                 hideAuthPad();
                 
+                // Mettre à jour l'affichage des boutons de réservation
+                if (activeId) {
+                    updateReservationButtons();
+                }
+                
                 notificationsShown = false;
                 await showNewReservations();
                 
@@ -1099,8 +1117,18 @@
             if (!activeId) return;
             
             const reservation = reservations[activeId];
+            
+            // Admin peut tout annuler
+            if (isAuthenticated) {
+                if (confirm("Annuler cette réservation ?")) {
+                    reservationsRef.child(activeId).remove();
+                }
+                return;
+            }
+            
+            // Utilisateur normal : ne peut annuler que sa propre réservation
             if (reservation && currentUserName && reservation.reservePar === currentUserName) {
-                if (confirm("Annuler votre réservation pour ce jeu ?")) {
+                if (confirm("Annuler votre réservation ?")) {
                     reservationsRef.child(activeId).remove();
                 }
             } else {
