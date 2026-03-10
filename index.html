@@ -803,7 +803,7 @@
         const PASSCODE = "9118";
         let games = [];
         let isAuthenticated = false;
-        let activeId = null;
+        let editingGameId = null;  // <-- NOUVEAU : ID du jeu en cours d'édition
         let photoStep = 0;
         let photoRecto = null;
         let photoTarget = null;
@@ -892,7 +892,7 @@
             const game = games.find(g => g.id === id);
             if (!game) return;
             
-            activeId = game.id;
+            editingGameId = game.id;  // <-- Stocke l'ID du jeu à modifier
             document.getElementById('m-title').value = game.title || '';
             document.getElementById('m-r').src = game.r || '';
             document.getElementById('m-v').src = game.v || '';
@@ -1041,7 +1041,7 @@
 
         // ========== RÉSERVATIONS ==========
         function reserveGame() {
-            if (!activeId) return;
+            if (!editingGameId) return;  // <-- Utilise editingGameId
             
             const name = prompt("Entrez votre prénom pour réserver ce jeu :");
             if (!name || name.trim() === '') return;
@@ -1051,15 +1051,15 @@
                 date: new Date().toISOString()
             };
             
-            reservationsRef.child(activeId).set(reservation);
+            reservationsRef.child(editingGameId).set(reservation);  // <-- Utilise editingGameId
             document.getElementById('m-reserve-display').textContent = `Réservé par ${name}`;
         }
         
         function cancelReservation() {
-            if (!activeId) return;
+            if (!editingGameId) return;  // <-- Utilise editingGameId
             
             if (confirm("Annuler la réservation pour ce jeu ?")) {
-                reservationsRef.child(activeId).remove();
+                reservationsRef.child(editingGameId).remove();  // <-- Utilise editingGameId
                 document.getElementById('m-reserve-display').textContent = '';
             }
         }
@@ -1187,7 +1187,7 @@
                     const url = await uploadPhoto(compressedBlob, `games/temp_verso_${Date.now()}.jpg`);
                     hidePhotoIndicator();
                     
-                    activeId = null;
+                    editingGameId = null;  // <-- Nouveau jeu, pas d'ID
                     document.getElementById('m-title').value = '';
                     document.getElementById('m-r').src = photoRecto;
                     document.getElementById('m-v').src = url;
@@ -1202,7 +1202,12 @@
                     photoRecto = null;
                 }
                 else if (photoTarget) {
-                    const url = await uploadPhoto(compressedBlob, `games/${activeId}_${photoTarget}_${Date.now()}.jpg`);
+                    if (!editingGameId) {  // <-- Vérifie qu'on est en mode édition
+                        alert("Ouvrez d'abord un jeu pour modifier ses photos");
+                        photoTarget = null;
+                        return;
+                    }
+                    const url = await uploadPhoto(compressedBlob, `games/${editingGameId}_${photoTarget}_${Date.now()}.jpg`);
                     if (photoTarget === 'r') {
                         document.getElementById('m-r').src = url;
                     } else {
@@ -1242,10 +1247,12 @@
             };
             
             try {
-                if (activeId) {
-                    await gamesRef.child(activeId).update(gameData);
+                if (editingGameId) {
+                    // Mise à jour d'un jeu existant
+                    await gamesRef.child(editingGameId).update(gameData);
                     showMessage(`✅ Jeu "${title}" mis à jour`, true);
                 } else {
+                    // Nouveau jeu
                     await gamesRef.push(gameData);
                     showMessage(`✅ Jeu "${title}" ajouté`, true);
                 }
@@ -1317,7 +1324,7 @@
         // ========== MODAL ==========
         function closeModal() {
             document.getElementById('modal').style.display = 'none';
-            activeId = null;
+            editingGameId = null;  // <-- Réinitialise l'ID
             photoStep = 0;
             photoRecto = null;
             photoTarget = null;
