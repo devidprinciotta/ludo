@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v8.3 - Drive direct</title>
+    <title>Ludotheque DEVID v9.1 - Correction finale</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -429,7 +429,7 @@
             accent-color: var(--accent);
         }
 
-        .admin-only { display: none; }
+        .admin-only { display: none !important; }
         
         .btn-header { 
             background: rgba(255,255,255,0.1);
@@ -674,7 +674,7 @@
             <div class="nav-grid">
                 <div style="display:flex; gap:8px; justify-content:center;">
                     <button class="btn-header admin-only" onclick="exportData()">💾</button>
-                    <button class="btn-header admin-only" onclick="restoreFromDrive()">📂</button>
+                    <button class="btn-header" onclick="importData()">📂</button>
                 </div>
                 <div>
                     <div style="font-weight:900; font-size:14px; text-align:center; text-shadow:0 0 10px var(--accent); letter-spacing:2px;">LUDOTHEQUE DEVID</div>
@@ -775,6 +775,7 @@
     <div id="notification-container" class="notification-container"></div>
 
     <input type="file" id="cam" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="local-file-input" accept=".json" style="display:none;" onchange="importLocalFile(this)">
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -822,7 +823,23 @@
         let lastAdminLogin = null;
         let notificationsShown = false;
 
-        // ========== INITIALISATION INDEXEDDB ==========
+        // ========== INITIALISATION ==========
+        window.addEventListener('load', function() {
+            // Forcer les boutons admin à être cachés au départ
+            document.querySelectorAll('.admin-only').forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            if (getAccessTokenFromUrl()) {
+                if (pendingSave) {
+                    pendingSave = false;
+                    setTimeout(() => {
+                        performSave();
+                    }, 500);
+                }
+            }
+        });
+
         const request = indexedDB.open("LudothequeDB", 1);
         
         request.onupgradeneeded = function(e) {
@@ -861,7 +878,7 @@
         }
 
         async function checkNewReservations() {
-            if (!isAuthenticated) return;
+            if (!isAuthenticated) return [];
             
             const adminSnapshot = await adminRef.child('lastLogin').once('value');
             const lastLogin = adminSnapshot.val() || 0;
@@ -883,13 +900,21 @@
                 }
             }
             
+            return newReservations;
+        }
+
+        async function showNewReservations() {
+            const newReservations = await checkNewReservations();
+            
             if (newReservations.length > 0 && !notificationsShown) {
                 notificationsShown = true;
                 for (const res of newReservations) {
                     showNotification(`📅 ${res.reservePar} a réservé "${res.gameTitle}"`);
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
+                return true;
             }
+            return false;
         }
 
         // ========== RÉSERVATIONS ==========
@@ -1105,19 +1130,19 @@
             if (authCode === PASSCODE) {
                 isAuthenticated = true;
                 document.querySelectorAll('.admin-only').forEach(el => {
-                    el.style.display = el.tagName === 'BUTTON' ? 'flex' : 'block';
+                    el.style.display = 'flex';
                 });
                 document.getElementById('lock-btn').classList.add('unlocked');
                 document.getElementById('lock-btn').textContent = '🔓';
                 hideAuthPad();
                 
+                notificationsShown = false;
+                await showNewReservations();
+                
                 const now = Date.now();
                 await adminRef.child('lastLogin').set(now);
-                
-                notificationsShown = false;
-                checkNewReservations();
             } else {
-                alert("Code incorrect. Accès refusé.");
+                alert("Code incorrect.");
                 clearCode();
             }
         }
@@ -1304,6 +1329,48 @@
             }
         };
 
+        // ========== FONCTIONS D'IMPORT/EXPORT (LOCAL/DRIVE) ==========
+        function importData() {
+            if (isAuthenticated) {
+                restoreFromDrive();
+            } else {
+                document.getElementById('local-file-input').click();
+            }
+        }
+
+        function importLocalFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data)) throw new Error("Format incorrect");
+                    
+                    const tx = db.transaction("games", "readwrite");
+                    const store = tx.objectStore("games");
+                    
+                    store.clear();
+                    
+                    data.forEach(game => {
+                        const cleanGame = { ...game };
+                        delete cleanGame.id;
+                        store.add(cleanGame);
+                    });
+                    
+                    tx.oncomplete = function() {
+                        showMessage(`✅ ${data.length} jeux restaurés depuis le fichier local`, true);
+                        loadGames();
+                    };
+                } catch (error) {
+                    showMessage(`❌ Erreur : ${error.message}`, false);
+                }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
         // ========== FONCTIONS GOOGLE DRIVE ==========
         function showMessage(text, isSuccess = true) {
             const msg = document.getElementById('drive-message');
@@ -1340,7 +1407,7 @@
                 
                 isAuthenticated = true;
                 document.querySelectorAll('.admin-only').forEach(el => {
-                    el.style.display = el.tagName === 'BUTTON' ? 'flex' : 'block';
+                    el.style.display = 'flex';
                 });
                 document.getElementById('lock-btn').classList.add('unlocked');
                 document.getElementById('lock-btn').textContent = '🔓';
@@ -1543,25 +1610,9 @@
             }
         }
 
-        window.addEventListener('load', function() {
-            if (getAccessTokenFromUrl()) {
-                if (pendingSave) {
-                    pendingSave = false;
-                    setTimeout(() => {
-                        performSave();
-                    }, 500);
-                }
-            }
-        });
-
         function exportData() {
             saveToDrive();
-        }
-
-        function importData() {
-            restoreFromDrive();
         }
     </script>
 </body>
 </html>
-
