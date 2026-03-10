@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v8.2 - Restauration corrigée</title>
+    <title>Ludotheque DEVID v8.3 - Drive direct</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -674,7 +674,7 @@
             <div class="nav-grid">
                 <div style="display:flex; gap:8px; justify-content:center;">
                     <button class="btn-header admin-only" onclick="exportData()">💾</button>
-                    <button class="btn-header admin-only" onclick="document.getElementById('import-file').click()">📂</button>
+                    <button class="btn-header admin-only" onclick="restoreFromDrive()">📂</button>
                 </div>
                 <div>
                     <div style="font-weight:900; font-size:14px; text-align:center; text-shadow:0 0 10px var(--accent); letter-spacing:2px;">LUDOTHEQUE DEVID</div>
@@ -775,7 +775,6 @@
     <div id="notification-container" class="notification-container"></div>
 
     <input type="file" id="cam" accept="image/*" capture="environment" style="display:none;">
-    <input type="file" id="import-file" accept=".json" style="display:none;">
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -1562,12 +1561,6 @@
         function importData() {
             restoreFromDrive();
         }
-
-        // ========== CORRECTION UNIQUE ==========
-        document.getElementById('import-file').onchange = function() {
-            restoreFromDrive();
-            this.value = '';
-        };
     </script>
 </body>
 </html>
