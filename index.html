@@ -803,7 +803,7 @@
         const PASSCODE = "9118";
         let games = [];
         let isAuthenticated = false;
-        let editingGameId = null;  // <-- NOUVEAU : ID du jeu en cours d'édition
+        let activeId = null;
         let photoStep = 0;
         let photoRecto = null;
         let photoTarget = null;
@@ -892,7 +892,7 @@
             const game = games.find(g => g.id === id);
             if (!game) return;
             
-            editingGameId = game.id;  // <-- Stocke l'ID du jeu à modifier
+            activeId = game.id;
             document.getElementById('m-title').value = game.title || '';
             document.getElementById('m-r').src = game.r || '';
             document.getElementById('m-v').src = game.v || '';
@@ -913,7 +913,8 @@
             });
             
             document.getElementById('modal').style.display = 'block';
-            history.pushState({ modal: true }, '', '#jeu-' + id);
+            // Stocker l'ID dans l'URL
+            history.pushState({ modal: true }, '', `?edit=${id}`);
         }
 
         // ========== RECHERCHE ==========
@@ -1041,7 +1042,7 @@
 
         // ========== RÉSERVATIONS ==========
         function reserveGame() {
-            if (!editingGameId) return;  // <-- Utilise editingGameId
+            if (!activeId) return;
             
             const name = prompt("Entrez votre prénom pour réserver ce jeu :");
             if (!name || name.trim() === '') return;
@@ -1051,15 +1052,15 @@
                 date: new Date().toISOString()
             };
             
-            reservationsRef.child(editingGameId).set(reservation);  // <-- Utilise editingGameId
+            reservationsRef.child(activeId).set(reservation);
             document.getElementById('m-reserve-display').textContent = `Réservé par ${name}`;
         }
         
         function cancelReservation() {
-            if (!editingGameId) return;  // <-- Utilise editingGameId
+            if (!activeId) return;
             
             if (confirm("Annuler la réservation pour ce jeu ?")) {
-                reservationsRef.child(editingGameId).remove();  // <-- Utilise editingGameId
+                reservationsRef.child(activeId).remove();
                 document.getElementById('m-reserve-display').textContent = '';
             }
         }
@@ -1187,7 +1188,7 @@
                     const url = await uploadPhoto(compressedBlob, `games/temp_verso_${Date.now()}.jpg`);
                     hidePhotoIndicator();
                     
-                    editingGameId = null;  // <-- Nouveau jeu, pas d'ID
+                    activeId = null;
                     document.getElementById('m-title').value = '';
                     document.getElementById('m-r').src = photoRecto;
                     document.getElementById('m-v').src = url;
@@ -1202,12 +1203,7 @@
                     photoRecto = null;
                 }
                 else if (photoTarget) {
-                    if (!editingGameId) {  // <-- Vérifie qu'on est en mode édition
-                        alert("Ouvrez d'abord un jeu pour modifier ses photos");
-                        photoTarget = null;
-                        return;
-                    }
-                    const url = await uploadPhoto(compressedBlob, `games/${editingGameId}_${photoTarget}_${Date.now()}.jpg`);
+                    const url = await uploadPhoto(compressedBlob, `games/${activeId}_${photoTarget}_${Date.now()}.jpg`);
                     if (photoTarget === 'r') {
                         document.getElementById('m-r').src = url;
                     } else {
@@ -1223,13 +1219,18 @@
             }
         };
 
-        // ========== SAUVEGARDE JEU ==========
+        // ========== SAUVEGARDE JEU (corrigée) ==========
         async function saveGame() {
             const title = document.getElementById('m-title').value;
             if (!title) {
                 alert("Titre obligatoire");
                 return;
             }
+            
+            // Récupérer l'ID depuis l'URL si activeId est perdu
+            const urlParams = new URLSearchParams(window.location.search);
+            const idFromUrl = urlParams.get('edit');
+            const finalId = activeId || idFromUrl;
             
             const players = [];
             document.querySelectorAll('#player-options input:checked').forEach(cb => players.push(cb.value));
@@ -1247,12 +1248,10 @@
             };
             
             try {
-                if (editingGameId) {
-                    // Mise à jour d'un jeu existant
-                    await gamesRef.child(editingGameId).update(gameData);
+                if (finalId) {
+                    await gamesRef.child(finalId).update(gameData);
                     showMessage(`✅ Jeu "${title}" mis à jour`, true);
                 } else {
-                    // Nouveau jeu
                     await gamesRef.push(gameData);
                     showMessage(`✅ Jeu "${title}" ajouté`, true);
                 }
@@ -1324,12 +1323,13 @@
         // ========== MODAL ==========
         function closeModal() {
             document.getElementById('modal').style.display = 'none';
-            editingGameId = null;  // <-- Réinitialise l'ID
+            activeId = null;
             photoStep = 0;
             photoRecto = null;
             photoTarget = null;
             hidePhotoIndicator();
-            history.back();
+            // Nettoyer l'URL
+            history.replaceState(null, '', window.location.pathname);
         }
 
         // ========== INIT ==========
