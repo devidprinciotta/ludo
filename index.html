@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v11.1 - Suppression + Modification corrigées</title>
+    <title>Ludotheque DEVID v11.2 - ID sécurisé</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -1229,8 +1229,15 @@
             
             try {
                 if (activeId) {
-                    await gamesRef.child(activeId).update(gameData);
-                    showMessage(`✅ Jeu "${title}" mis à jour`, true);
+                    // Vérifier que l'ID existe toujours
+                    const gameExists = games.some(g => g.id === activeId);
+                    if (!gameExists) {
+                        showMessage(`❌ Le jeu original n'existe plus, création d'un nouveau`, false);
+                        await gamesRef.push(gameData);
+                    } else {
+                        await gamesRef.child(activeId).update(gameData);
+                        showMessage(`✅ Jeu "${title}" mis à jour`, true);
+                    }
                 } else {
                     await gamesRef.push(gameData);
                     showMessage(`✅ Jeu "${title}" ajouté`, true);
