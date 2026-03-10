@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v11.0 - Storage stable</title>
+    <title>Ludotheque DEVID v11.1 - Suppression + Modification corrigées</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -673,7 +673,7 @@
         <div class="header-top">
             <div class="nav-grid">
                 <div style="display:flex; gap:8px; justify-content:center;">
-                    <button class="btn-header admin-only" onclick="deleteAllGames()" style="display: none;">🗑️</button>
+                    <button class="btn-header admin-only" onclick="toggleSelectionMode()" style="display: none;">🗑️</button>
                 </div>
                 <div>
                     <div style="font-weight:900; font-size:14px; text-align:center; text-shadow:0 0 10px var(--accent); letter-spacing:2px;">LUDOTHEQUE DEVID</div>
@@ -696,6 +696,7 @@
                 <label for="select-all" style="font-weight:bold;">Tout sélectionner</label>
             </div>
             <div id="selection-count" class="selection-count">0 sélectionné</div>
+            <button class="reserve-btn" onclick="deleteSelected()" style="background: var(--danger); margin-left: auto;">🗑️ Supprimer</button>
         </div>
     </div>
 
@@ -1297,11 +1298,6 @@
                 cb.checked = selectAll;
             });
             updateSelectionCount();
-        }
-
-        function deleteAllGames() {
-            if (!isAuthenticated) return;
-            toggleSelectionMode();
         }
 
         // ========== MODAL ==========
