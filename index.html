@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v10.0 - 100% en ligne</title>
+    <title>Ludotheque DEVID v10.1 - Lecture base corrigée</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -783,6 +783,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyBIeiPklebeg4pYQQmZWX7G_vBLF-93aNs",
             authDomain: "ludotheque-reservation.firebaseapp.com",
+            databaseURL: "https://ludotheque-reservation-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "ludotheque-reservation",
             storageBucket: "ludotheque-reservation.firebasestorage.app",
             messagingSenderId: "930164429083",
@@ -855,6 +856,7 @@
                 }
                 
                 card.innerHTML = `
+                    <input type="checkbox" class="checkbox-select" data-id="${game.id}" onchange="updateSelectionCount()">
                     <div class="img-container"><img src="${game.photoRecto || ''}" class="thumb"></div>
                     <div style="flex-grow:1;">
                         <div style="font-weight:900; font-size:16px;">${game.title || 'Sans titre'}</div>
@@ -864,6 +866,12 @@
                 `;
                 list.appendChild(card);
             });
+            
+            if (selectionMode) {
+                document.body.classList.add('selection-mode');
+            } else {
+                document.body.classList.remove('selection-mode');
+            }
         }
 
         function openGame(id) {
@@ -1116,7 +1124,6 @@
             triggerFlash();
             
             if (photoStep === 1) {
-                // Première photo (recto)
                 try {
                     const url = await uploadPhoto(file, `games/temp_recto_${Date.now()}.jpg`);
                     photoRecto = url;
@@ -1136,7 +1143,6 @@
                 }
             } 
             else if (photoStep === 2) {
-                // Deuxième photo (verso)
                 try {
                     const url = await uploadPhoto(file, `games/temp_verso_${Date.now()}.jpg`);
                     hidePhotoIndicator();
@@ -1161,7 +1167,6 @@
                 }
             }
             else if (photoTarget) {
-                // Photo individuelle (depuis le modal)
                 try {
                     const url = await uploadPhoto(file, `games/${activeId}_${photoTarget}_${Date.now()}.jpg`);
                     if (photoTarget === 'r') {
@@ -1202,11 +1207,9 @@
             
             try {
                 if (activeId) {
-                    // Mise à jour
                     await gamesRef.child(activeId).update(gameData);
                     showMessage(`✅ Jeu "${title}" mis à jour`, true);
                 } else {
-                    // Nouveau jeu
                     await gamesRef.push(gameData);
                     showMessage(`✅ Jeu "${title}" ajouté`, true);
                 }
