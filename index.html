@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v10.1 - Lecture base corrigée</title>
+    <title>Ludotheque DEVID v11.0 - Storage stable</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -857,7 +857,7 @@
                 
                 card.innerHTML = `
                     <input type="checkbox" class="checkbox-select" data-id="${game.id}" onchange="updateSelectionCount()">
-                    <div class="img-container"><img src="${game.photoRecto || ''}" class="thumb"></div>
+                    <div class="img-container"><img src="${game.r || ''}" class="thumb"></div>
                     <div style="flex-grow:1;">
                         <div style="font-weight:900; font-size:16px;">${game.title || 'Sans titre'}</div>
                         <div style="font-size:12px; opacity:0.7;">${players}</div>
@@ -880,8 +880,8 @@
             
             activeId = game.id;
             document.getElementById('m-title').value = game.title || '';
-            document.getElementById('m-r').src = game.photoRecto || '';
-            document.getElementById('m-v').src = game.photoVerso || '';
+            document.getElementById('m-r').src = game.r || '';
+            document.getElementById('m-v').src = game.v || '';
             document.getElementById('m-price').value = game.price || '';
             document.getElementById('m-date').value = game.date || '';
             document.getElementById('m-loan').value = game.loan || '';
@@ -1106,10 +1106,39 @@
             document.getElementById('cam').click();
         }
 
-        async function uploadPhoto(file, path) {
+        async function compressImage(file) {
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (width > 800) {
+                            height = Math.round(height * 800 / width);
+                            width = 800;
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                        
+                        canvas.toBlob(blob => {
+                            resolve(blob);
+                        }, 'image/jpeg', 0.7);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function uploadPhoto(blob, path) {
             const storageRef = storage.ref();
             const photoRef = storageRef.child(path);
-            await photoRef.put(file);
+            await photoRef.put(blob);
             return await photoRef.getDownloadURL();
         }
 
@@ -1123,9 +1152,11 @@
             
             triggerFlash();
             
-            if (photoStep === 1) {
-                try {
-                    const url = await uploadPhoto(file, `games/temp_recto_${Date.now()}.jpg`);
+            try {
+                const compressedBlob = await compressImage(file);
+                
+                if (photoStep === 1) {
+                    const url = await uploadPhoto(compressedBlob, `games/temp_recto_${Date.now()}.jpg`);
                     photoRecto = url;
                     photoStep = 2;
                     showPhotoIndicator("📸 Photo 2/2 - Cliquez ici");
@@ -1136,15 +1167,9 @@
                             document.getElementById('cam').click();
                         }
                     }, 500);
-                } catch (error) {
-                    showMessage(`❌ Erreur upload recto: ${error.message}`, false);
-                    photoStep = 0;
-                    hidePhotoIndicator();
-                }
-            } 
-            else if (photoStep === 2) {
-                try {
-                    const url = await uploadPhoto(file, `games/temp_verso_${Date.now()}.jpg`);
+                } 
+                else if (photoStep === 2) {
+                    const url = await uploadPhoto(compressedBlob, `games/temp_verso_${Date.now()}.jpg`);
                     hidePhotoIndicator();
                     
                     activeId = null;
@@ -1160,25 +1185,21 @@
                     
                     photoStep = 0;
                     photoRecto = null;
-                } catch (error) {
-                    showMessage(`❌ Erreur upload verso: ${error.message}`, false);
-                    photoStep = 0;
-                    hidePhotoIndicator();
                 }
-            }
-            else if (photoTarget) {
-                try {
-                    const url = await uploadPhoto(file, `games/${activeId}_${photoTarget}_${Date.now()}.jpg`);
+                else if (photoTarget) {
+                    const url = await uploadPhoto(compressedBlob, `games/${activeId}_${photoTarget}_${Date.now()}.jpg`);
                     if (photoTarget === 'r') {
                         document.getElementById('m-r').src = url;
                     } else {
                         document.getElementById('m-v').src = url;
                     }
                     photoTarget = null;
-                } catch (error) {
-                    showMessage(`❌ Erreur upload: ${error.message}`, false);
-                    photoTarget = null;
                 }
+            } catch (error) {
+                showMessage(`❌ Erreur: ${error.message}`, false);
+                photoStep = 0;
+                hidePhotoIndicator();
+                photoTarget = null;
             }
         };
 
@@ -1201,8 +1222,8 @@
                 date: document.getElementById('m-date').value,
                 loan: document.getElementById('m-loan').value,
                 players: players,
-                photoRecto: document.getElementById('m-r').src || '',
-                photoVerso: document.getElementById('m-v').src || ''
+                r: document.getElementById('m-r').src || '',
+                v: document.getElementById('m-v').src || ''
             };
             
             try {
