@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v8.1 - Restauration corrigée</title>
+    <title>Ludotheque DEVID v8.2 - Restauration corrigée</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -1305,7 +1305,7 @@
             }
         };
 
-        // ========== FONCTIONS GOOGLE DRIVE CORRIGÉES ==========
+        // ========== FONCTIONS GOOGLE DRIVE ==========
         function showMessage(text, isSuccess = true) {
             const msg = document.getElementById('drive-message');
             msg.textContent = text;
@@ -1457,7 +1457,6 @@
             await performSave();
         }
 
-        // FONCTION RESTORE CORRIGÉE
         async function restoreFromDrive() {
             if (!isAuthenticated) {
                 alert("Vous devez d'abord vous identifier (cadenas)");
@@ -1487,7 +1486,6 @@
                     return;
                 }
                 
-                // Menu de sélection simplifié
                 let message = "Choisissez une sauvegarde (tapez 1, 2 ou 3) :\n";
                 files.forEach((f, index) => {
                     message += `${index + 1}. ${f.name} (${f.modifiedTime})\n`;
@@ -1496,7 +1494,6 @@
                 const choice = prompt(message);
                 if (!choice) return;
                 
-                // Extraire le premier chiffre
                 const match = choice.match(/\d/);
                 if (!match) {
                     alert("Veuillez entrer un numéro (1, 2 ou 3)");
@@ -1509,7 +1506,6 @@
                     return;
                 }
                 
-                // Télécharger et restaurer
                 const response = await fetch(
                     `https://www.googleapis.com/drive/v3/files/${files[index].id}?alt=media`,
                     {
@@ -1567,8 +1563,9 @@
             restoreFromDrive();
         }
 
+        // ========== CORRECTION UNIQUE ==========
         document.getElementById('import-file').onchange = function() {
-            showMessage("L'import local a été remplacé par la restauration Google Drive", false);
+            restoreFromDrive();
             this.value = '';
         };
     </script>
