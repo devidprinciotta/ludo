@@ -735,8 +735,8 @@
             <label>📅 Réservation</label>
             <div style="display: flex; gap: 10px; align-items: center;">
                 <span id="m-reserve-display" style="color: var(--warning);"></span>
-                <button class="reserve-btn" onclick="reserveGame()">📅 Réserver</button>
-                <button class="reserve-btn" onclick="cancelReservation()" style="background: #666;">✖ Annuler</button>
+                <button class="reserve-btn" id="m-reserve-btn" onclick="reserveGame()">📅 Réserver</button>
+                <button class="reserve-btn" id="m-cancel-btn" onclick="cancelReservation()" style="background: #666;">✖ Annuler</button>
             </div>
         </div>
     </div>
@@ -811,6 +811,20 @@
         let selectionMode = false;
         let reservations = {};
         let notificationsShown = false;
+        let currentUserName = null;
+
+        // Demander le prénom au premier clic sur "Réserver"
+        function getUserName() {
+            if (!currentUserName) {
+                currentUserName = prompt("Entrez votre prénom pour réserver :");
+                if (!currentUserName || currentUserName.trim() === '') {
+                    currentUserName = null;
+                    return null;
+                }
+                currentUserName = currentUserName.trim();
+            }
+            return currentUserName;
+        }
 
         // ========== GESTION RETOUR ARRIÈRE ==========
         window.addEventListener('popstate', function(event) {
@@ -835,7 +849,38 @@
         reservationsRef.on('value', (snapshot) => {
             reservations = snapshot.val() || {};
             displayGames();
+            // Mettre à jour les boutons du modal si ouvert
+            if (activeId) {
+                updateReservationButtons();
+            }
         });
+
+        // ========== MISE À JOUR BOUTONS RÉSERVATION ==========
+        function updateReservationButtons() {
+            const reserveBtn = document.getElementById('m-reserve-btn');
+            const cancelBtn = document.getElementById('m-cancel-btn');
+            const reserveDisplay = document.getElementById('m-reserve-display');
+            
+            const reservation = reservations[activeId];
+            
+            if (reservation) {
+                reserveDisplay.textContent = `Réservé par ${reservation.reservePar}`;
+                // Si c'est l'utilisateur actuel qui a réservé
+                if (currentUserName && reservation.reservePar === currentUserName) {
+                    reserveBtn.style.display = 'none';
+                    cancelBtn.style.display = 'inline-block';
+                } else {
+                    // Si c'est quelqu'un d'autre, on cache les deux boutons
+                    reserveBtn.style.display = 'none';
+                    cancelBtn.style.display = 'none';
+                }
+            } else {
+                reserveDisplay.textContent = '';
+                // Pas de réservation → tout le monde peut réserver
+                reserveBtn.style.display = 'inline-block';
+                cancelBtn.style.display = 'none';
+            }
+        }
 
         // ========== AFFICHAGE ==========
         function displayGames() {
@@ -901,20 +946,15 @@
             document.getElementById('m-loan').value = game.loan || '';
             document.getElementById('m-console').value = game.console || 'PS4';
             
-            if (reservations[game.id]) {
-                document.getElementById('m-reserve-display').textContent = `Réservé par ${reservations[game.id].reservePar}`;
-            } else {
-                document.getElementById('m-reserve-display').textContent = '';
-            }
-            
             const players = Array.isArray(game.players) ? game.players : (game.players ? [game.players] : []);
             document.querySelectorAll('#player-options input').forEach(cb => {
                 cb.checked = players.includes(cb.value);
             });
             
             document.getElementById('modal').style.display = 'block';
-            // Stocker l'ID dans l'URL
             history.pushState({ modal: true }, '', `?edit=${id}`);
+            
+            updateReservationButtons();
         }
 
         // ========== RECHERCHE ==========
@@ -1044,24 +1084,27 @@
         function reserveGame() {
             if (!activeId) return;
             
-            const name = prompt("Entrez votre prénom pour réserver ce jeu :");
-            if (!name || name.trim() === '') return;
+            const name = getUserName();
+            if (!name) return;
             
             const reservation = {
-                reservePar: name.trim(),
+                reservePar: name,
                 date: new Date().toISOString()
             };
             
             reservationsRef.child(activeId).set(reservation);
-            document.getElementById('m-reserve-display').textContent = `Réservé par ${name}`;
         }
         
         function cancelReservation() {
             if (!activeId) return;
             
-            if (confirm("Annuler la réservation pour ce jeu ?")) {
-                reservationsRef.child(activeId).remove();
-                document.getElementById('m-reserve-display').textContent = '';
+            const reservation = reservations[activeId];
+            if (reservation && currentUserName && reservation.reservePar === currentUserName) {
+                if (confirm("Annuler votre réservation pour ce jeu ?")) {
+                    reservationsRef.child(activeId).remove();
+                }
+            } else {
+                alert("Vous ne pouvez pas annuler cette réservation.");
             }
         }
 
@@ -1219,7 +1262,7 @@
             }
         };
 
-        // ========== SAUVEGARDE JEU (corrigée) ==========
+        // ========== SAUVEGARDE JEU ==========
         async function saveGame() {
             const title = document.getElementById('m-title').value;
             if (!title) {
@@ -1227,7 +1270,6 @@
                 return;
             }
             
-            // Récupérer l'ID depuis l'URL si activeId est perdu
             const urlParams = new URLSearchParams(window.location.search);
             const idFromUrl = urlParams.get('edit');
             const finalId = activeId || idFromUrl;
@@ -1328,7 +1370,6 @@
             photoRecto = null;
             photoTarget = null;
             hidePhotoIndicator();
-            // Nettoyer l'URL
             history.replaceState(null, '', window.location.pathname);
         }
 
