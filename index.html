@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ludotheque DEVID v9.1 - Correction finale</title>
+    <title>Ludotheque DEVID v9.2 - Admin fix</title>
     <style>
         :root { 
             --ps4-blue: #003791; 
@@ -825,7 +825,6 @@
 
         // ========== INITIALISATION ==========
         window.addEventListener('load', function() {
-            // Forcer les boutons admin à être cachés au départ
             document.querySelectorAll('.admin-only').forEach(el => {
                 el.style.display = 'none';
             });
@@ -1129,9 +1128,15 @@
         async function validateCode() {
             if (authCode === PASSCODE) {
                 isAuthenticated = true;
+                
                 document.querySelectorAll('.admin-only').forEach(el => {
-                    el.style.display = 'flex';
+                    if (el.tagName === 'BUTTON') {
+                        el.style.display = 'flex';
+                    } else {
+                        el.style.display = 'block';
+                    }
                 });
+                
                 document.getElementById('lock-btn').classList.add('unlocked');
                 document.getElementById('lock-btn').textContent = '🔓';
                 hideAuthPad();
@@ -1406,9 +1411,15 @@
                 window.location.hash = '';
                 
                 isAuthenticated = true;
+                
                 document.querySelectorAll('.admin-only').forEach(el => {
-                    el.style.display = 'flex';
+                    if (el.tagName === 'BUTTON') {
+                        el.style.display = 'flex';
+                    } else {
+                        el.style.display = 'block';
+                    }
                 });
+                
                 document.getElementById('lock-btn').classList.add('unlocked');
                 document.getElementById('lock-btn').textContent = '🔓';
                 
